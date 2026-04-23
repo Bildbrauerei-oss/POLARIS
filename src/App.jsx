@@ -15,37 +15,39 @@ const CUSTOM_PAGES = {
 
 export default function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('polaris_auth') === '1')
-  const [splashDone, setSplashDone] = useState(false)
+  const [showSplash, setShowSplash] = useState(false)
 
   function login() {
     setAuthed(true)
-    setSplashDone(false) // always show splash on login
+    // splash disabled temporarily — was causing black screen
+    // setShowSplash(true)
   }
 
   function logout() {
     sessionStorage.removeItem('polaris_auth')
     setAuthed(false)
-    setSplashDone(false)
-  }
-
-  if (authed && !splashDone) {
-    return <SplashScreen onDone={() => setSplashDone(true)} />
+    setShowSplash(false)
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={!authed ? <Login onLogin={login} /> : <Navigate to="/" />} />
-        <Route path="/" element={authed ? <Layout onLogout={logout} /> : <Navigate to="/login" />}>
-          <Route index element={<CommandCenter />} />
-          {ALL_MODULES.filter(m => m.path !== '/').map(m => {
-            const Page = CUSTOM_PAGES[m.path] || ModulePage
-            return <Route key={m.path} path={m.path.slice(1)} element={<Page />} />
-          })}
-          <Route path="command-center" element={<Navigate to="/" />} />
-        </Route>
-        <Route path="*" element={authed ? <NotFound /> : <Navigate to="/login" />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      {/* Splash renders as overlay ON TOP of everything */}
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={!authed ? <Login onLogin={login} /> : <Navigate to="/" />} />
+          <Route path="/" element={authed ? <Layout onLogout={logout} /> : <Navigate to="/login" />}>
+            <Route index element={<CommandCenter />} />
+            {ALL_MODULES.filter(m => m.path !== '/').map(m => {
+              const Page = CUSTOM_PAGES[m.path] || ModulePage
+              return <Route key={m.path} path={m.path.slice(1)} element={<Page />} />
+            })}
+            <Route path="command-center" element={<Navigate to="/" />} />
+          </Route>
+          <Route path="*" element={authed ? <NotFound /> : <Navigate to="/login" />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   )
 }
