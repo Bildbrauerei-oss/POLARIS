@@ -48,9 +48,12 @@ function cduWirkungStyle(w) {
   return { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', label: 'CDU →' }
 }
 
-function formatDate(d) {
+function formatDate(d, full = false) {
   if (!d) return '—'
   try {
+    if (full) {
+      return new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })
+    }
     const m = (Date.now() - new Date(d)) / 60000
     if (m < 60) return `${Math.round(m)}m`
     if (m < 1440) return `${Math.round(m / 60)}h`
@@ -58,7 +61,7 @@ function formatDate(d) {
   } catch { return '—' }
 }
 
-function ArticleCard({ a, i }) {
+function ArticleCard({ a, i, showFullDate = false }) {
   const ss = sentimentStyle(a.sentiment)
   const cw = cduWirkungStyle(a.cdu_wirkung)
   const isUrgent = a.handlungsbedarf && a.sentiment === 'negativ'
@@ -116,7 +119,7 @@ function ArticleCard({ a, i }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.625rem', color: '#52b7c1', fontWeight: 600 }}>{a.quelle}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.625rem', color: 'rgba(255,255,255,0.2)' }}>
-              <Clock size={9} />{formatDate(a.datum)}
+              <Clock size={9} />{formatDate(a.datum, showFullDate)}
             </span>
             {a.suchbegriff && (
               <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.15)', fontStyle: 'italic' }}>{a.suchbegriff}</span>
@@ -542,7 +545,7 @@ export default function MedienMonitor() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              {displayArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} />)}
+              {displayArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} showFullDate={vipMode} />)}
             </div>
           )}
         </div>
