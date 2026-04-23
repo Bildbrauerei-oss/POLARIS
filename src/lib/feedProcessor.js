@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
-const MAX_ARTICLES = 150
+const MAX_ARTICLES = 800
 
 export async function saveArticles(articles) {
   if (!articles.length) return { saved: 0, skipped: 0 }
@@ -24,10 +24,10 @@ export async function saveArticles(articles) {
 
   if (!newArticles.length) return { saved: 0, skipped: deduped.length }
 
-  // Nur die 60 neuesten pro Sync-Runde speichern
+  // Die 300 neuesten pro Sync-Runde speichern
   const toSave = newArticles
     .sort((a, b) => new Date(b.datum) - new Date(a.datum))
-    .slice(0, 60)
+    .slice(0, 300)
 
   const rows = toSave.map(a => ({
     titel: a.titel?.slice(0, 500) || '',

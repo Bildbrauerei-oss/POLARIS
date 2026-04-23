@@ -137,8 +137,8 @@ function ArticleCard({ a, i }) {
   )
 }
 
-// VIP Sidebar — localStorage
-function VipSidebar({ selectedVip, onSelectVip }) {
+// VIP Sidebar — localStorage + Mehrfachauswahl
+function VipSidebar({ selectedVips, onToggleVip, onClearVips }) {
   const [vips, setVips] = useState(() => loadVips().sort((a, b) => a.localeCompare(b)))
   const [input, setInput] = useState('')
 
@@ -147,12 +147,14 @@ function VipSidebar({ selectedVip, onSelectVip }) {
     if (!name || vips.includes(name)) return
     const next = [...vips, name].sort((a, b) => a.localeCompare(b))
     setVips(next); saveVips(next); setInput('')
+    // Neu hinzugefügte Person automatisch aktivieren
+    onToggleVip(name)
   }
 
   function removeVip(name) {
     const next = vips.filter(v => v !== name)
     setVips(next); saveVips(next)
-    if (selectedVip === name) onSelectVip(null)
+    if (selectedVips.includes(name)) onToggleVip(name)
   }
 
   return (
@@ -178,23 +180,37 @@ function VipSidebar({ selectedVip, onSelectVip }) {
         </button>
       </div>
 
+      {selectedVips.length > 0 && (
+        <div style={{ padding: '0.375rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,166,0,0.04)' }}>
+          <span style={{ fontSize: '0.625rem', color: '#ffa600', fontWeight: 700 }}>{selectedVips.length} ausgewählt</span>
+          <button onClick={onClearVips} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.625rem', cursor: 'pointer', fontFamily: 'inherit', padding: 0, textDecoration: 'underline' }}>
+            leeren
+          </button>
+        </div>
+      )}
+
       <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-        {vips.map(name => (
-          <div key={name}
-            onClick={() => onSelectVip(selectedVip === name ? null : name)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.75rem', background: selectedVip === name ? 'rgba(255,166,0,0.08)' : 'transparent', borderLeft: `2px solid ${selectedVip === name ? '#ffa600' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.12s' }}
-            onMouseEnter={e => { if (selectedVip !== name) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-            onMouseLeave={e => { if (selectedVip !== name) e.currentTarget.style.background = 'transparent' }}
-          >
-            <User size={10} color={selectedVip === name ? '#ffa600' : 'rgba(255,255,255,0.3)'} style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: '0.8125rem', color: selectedVip === name ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-            <button onClick={e => { e.stopPropagation(); removeVip(name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.12)', display: 'flex', transition: 'color 0.1s', padding: 2 }}
-              onMouseEnter={e => e.currentTarget.style.color = '#bf111b'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}>
-              <X size={10} />
-            </button>
-          </div>
-        ))}
+        {vips.map(name => {
+          const active = selectedVips.includes(name)
+          return (
+            <div key={name}
+              onClick={() => onToggleVip(name)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.75rem', background: active ? 'rgba(255,166,0,0.08)' : 'transparent', borderLeft: `2px solid ${active ? '#ffa600' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.12s' }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+            >
+              <input type="checkbox" checked={active} readOnly
+                style={{ accentColor: '#ffa600', cursor: 'pointer', flexShrink: 0, width: 12, height: 12 }} />
+              <User size={10} color={active ? '#ffa600' : 'rgba(255,255,255,0.3)'} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: '0.8125rem', color: active ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+              <button onClick={e => { e.stopPropagation(); removeVip(name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.12)', display: 'flex', transition: 'color 0.1s', padding: 2 }}
+                onMouseEnter={e => e.currentTarget.style.color = '#bf111b'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}>
+                <X size={10} />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -312,16 +328,18 @@ function MonitoringListenSidebar({ selectedListe, onSelectListe }) {
   )
 }
 
-async function fetchVipNews(name) {
+// Google News für eine Person (letzten 30 Tage)
+async function fetchPersonNews(name) {
   try {
-    const query = `"${name}"`
+    const query = `"${name}" when:30d`
     const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=de&gl=DE&ceid=DE:de`
-    const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(8000) })
+    const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(12000) })
     if (!res.ok) return []
     const xml = await res.text()
     const parser = new DOMParser()
     const doc = parser.parseFromString(xml, 'text/xml')
     const items = doc.querySelectorAll('item')
+    const monthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
     const results = []
     items.forEach(item => {
       const titel = item.querySelector('title')?.textContent?.trim()
@@ -329,17 +347,39 @@ async function fetchVipNews(name) {
       const pubDate = item.querySelector('pubDate')?.textContent?.trim()
       const quelle = item.querySelector('source')?.textContent?.trim()
       if (!titel || !url) return
-      results.push({ id: url, titel, quelle: quelle || 'Google News', url, datum: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), sentiment: null, cdu_wirkung: null, handlungsbedarf: false, zusammenfassung: null })
+      const dateMs = pubDate ? new Date(pubDate).getTime() : Date.now()
+      if (dateMs < monthAgo) return
+      results.push({
+        id: `${name}::${url}`, titel, quelle: quelle || 'Google News', url,
+        datum: new Date(dateMs).toISOString(),
+        suchbegriff: name,
+        sentiment: null, cdu_wirkung: null, handlungsbedarf: false, zusammenfassung: null,
+      })
     })
-    return results.slice(0, 20)
+    return results
   } catch { return [] }
 }
 
+// Parallel für mehrere VIPs, dedupliziert nach URL, sortiert nach Datum
+async function fetchVipNewsMulti(names) {
+  if (!names?.length) return []
+  const batches = await Promise.all(names.map(n => fetchPersonNews(n)))
+  const all = batches.flat()
+  const seen = new Set()
+  const deduped = []
+  for (const a of all) {
+    const key = a.url
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(a)
+  }
+  return deduped.sort((a, b) => new Date(b.datum) - new Date(a.datum))
+}
+
 export default function MedienMonitor() {
-  const [sentiment, setSentiment] = useState('')
   const [cduWirkung, setCduWirkung] = useState('')
   const [nurHandlung, setNurHandlung] = useState(false)
-  const [selectedVip, setSelectedVip] = useState(null)
+  const [selectedVips, setSelectedVips] = useState([])
   const [selectedListe, setSelectedListe] = useState(null)
   const [vipNews, setVipNews] = useState([])
   const [vipLoading, setVipLoading] = useState(false)
@@ -347,23 +387,30 @@ export default function MedienMonitor() {
   const [syncLog, setSyncLog] = useState(null)
   const lastRun = getLastRun()
 
+  const vipMode = selectedVips.length > 0
+
+  function toggleVip(name) {
+    setSelectedListe(null)
+    setSelectedVips(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name])
+  }
+  function clearVips() { setSelectedVips([]) }
+
   useEffect(() => {
-    if (!selectedVip) { setVipNews([]); return }
+    if (!vipMode) { setVipNews([]); return }
     setVipLoading(true)
-    fetchVipNews(selectedVip).then(results => { setVipNews(results); setVipLoading(false) })
-  }, [selectedVip])
+    fetchVipNewsMulti(selectedVips).then(results => { setVipNews(results); setVipLoading(false) })
+  }, [selectedVips.join('|'), vipMode])
 
   const { articles, loading, count, refetch } = useArticles({
-    sentiment: selectedVip ? undefined : (sentiment || undefined),
-    cduWirkung: selectedVip ? undefined : (cduWirkung || undefined),
-    handlungsbedarf: selectedVip ? undefined : (nurHandlung || undefined),
+    cduWirkung: vipMode ? undefined : (cduWirkung || undefined),
+    handlungsbedarf: vipMode ? undefined : (nurHandlung || undefined),
     monitoringListe: selectedListe || undefined,
-    limit: 200,
+    limit: 800,
   })
 
-  const displayArticles = selectedVip ? vipNews : articles
-  const displayLoading = selectedVip ? vipLoading : loading
-  const displayCount = selectedVip ? vipNews.length : count
+  const displayArticles = vipMode ? vipNews : articles
+  const displayLoading = vipMode ? vipLoading : loading
+  const displayCount = vipMode ? vipNews.length : count
 
   async function handleSync() {
     setSyncing(true); setSyncLog(null)
@@ -371,11 +418,11 @@ export default function MedienMonitor() {
     setSyncLog(result); setSyncing(false); refetch()
   }
 
-  const urgent = articles.filter(a => a.handlungsbedarf && a.sentiment === 'negativ')
+  const urgent = articles.filter(a => a.handlungsbedarf)
   const todayCount = articles.filter(a => a.datum && new Date(a.datum).toDateString() === new Date().toDateString()).length
 
-  const activeFilter = selectedVip
-    ? `VIP: ${selectedVip}`
+  const activeFilter = vipMode
+    ? `VIPs: ${selectedVips.join(', ')} · letzte 30 Tage`
     : selectedListe
       ? `Liste: ${selectedListe}`
       : 'Alle Artikel'
@@ -439,46 +486,30 @@ export default function MedienMonitor() {
 
         {/* LEFT SIDEBAR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <VipSidebar selectedVip={selectedVip} onSelectVip={v => { setSelectedVip(v); setSelectedListe(null) }} />
-          <MonitoringListenSidebar selectedListe={selectedListe} onSelectListe={l => { setSelectedListe(l); setSelectedVip(null) }} />
+          <VipSidebar selectedVips={selectedVips} onToggleVip={toggleVip} onClearVips={clearVips} />
+          <MonitoringListenSidebar selectedListe={selectedListe} onSelectListe={l => { setSelectedListe(l); setSelectedVips([]) }} />
         </div>
 
         {/* RIGHT: Articles */}
         <div>
           {/* Filter bar */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '0.625rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {[
-              {
-                val: sentiment, set: v => setSentiment(v), opts: [
-                  { value: '', label: 'Alle Sentiments' },
-                  { value: 'positiv', label: '↑ Positiv' },
-                  { value: 'neutral', label: '→ Neutral' },
-                  { value: 'negativ', label: '↓ Negativ' },
-                ]
-              },
-              {
-                val: cduWirkung, set: v => setCduWirkung(v), opts: [
-                  { value: '', label: 'CDU-Wirkung: Alle' },
-                  { value: 'positiv', label: 'CDU ↑ Positiv' },
-                  { value: 'neutral', label: 'CDU → Neutral' },
-                  { value: 'negativ', label: 'CDU ↓ Negativ' },
-                ]
-              },
-            ].map((f, i) => (
-              <select key={i} value={f.val} onChange={e => f.set(e.target.value)} style={{
-                background: '#0a0f1a', border: '1px solid rgba(82,183,193,0.18)', color: '#fff',
-                padding: '0.3rem 0.625rem', borderRadius: 7, fontSize: '0.75rem',
-                fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-              }}>
-                {f.opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            ))}
+            <select value={cduWirkung} onChange={e => setCduWirkung(e.target.value)} style={{
+              background: '#0a0f1a', border: '1px solid rgba(82,183,193,0.18)', color: '#fff',
+              padding: '0.3rem 0.625rem', borderRadius: 7, fontSize: '0.75rem',
+              fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+            }}>
+              <option value="">CDU-Wirkung: Alle</option>
+              <option value="positiv">CDU ↑ Positiv</option>
+              <option value="neutral">CDU → Neutral</option>
+              <option value="negativ">CDU ↓ Negativ</option>
+            </select>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>
               <input type="checkbox" checked={nurHandlung} onChange={e => setNurHandlung(e.target.checked)} style={{ accentColor: '#52b7c1' }} />
               Nur Handlungsbedarf
             </label>
-            {(selectedVip || selectedListe || sentiment || cduWirkung || nurHandlung) && (
-              <button onClick={() => { setSelectedVip(null); setSelectedListe(null); setSentiment(''); setCduWirkung(''); setNurHandlung(false) }}
+            {(vipMode || selectedListe || cduWirkung || nurHandlung) && (
+              <button onClick={() => { setSelectedVips([]); setSelectedListe(null); setCduWirkung(''); setNurHandlung(false) }}
                 style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'rgba(255,255,255,0.35)', fontSize: '0.6875rem', padding: '0.25rem 0.625rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#fff'}
                 onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}>
@@ -500,13 +531,13 @@ export default function MedienMonitor() {
           {/* Articles */}
           {displayLoading ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>
-              {selectedVip ? `Suche Artikel zu ${selectedVip}…` : 'Wird geladen…'}
+              {vipMode ? `Suche Artikel zu ${selectedVips.length > 1 ? `${selectedVips.length} Personen` : selectedVips[0]}…` : 'Wird geladen…'}
             </div>
           ) : displayArticles.length === 0 ? (
             <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '4rem', textAlign: 'center' }}>
               <Newspaper size={36} color="rgba(82,183,193,0.12)" style={{ margin: '0 auto 1rem' }} />
               <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.875rem' }}>
-                {selectedVip ? `Keine Artikel zu ${selectedVip}` : selectedListe ? `Keine Artikel für Liste "${selectedListe}"` : 'Keine Artikel. Starte den Feed-Sync.'}
+                {vipMode ? `Keine Artikel in den letzten 30 Tagen zu ${selectedVips.join(', ')}` : selectedListe ? `Keine Artikel für Liste "${selectedListe}"` : 'Keine Artikel. Starte den Feed-Sync.'}
               </p>
             </div>
           ) : (

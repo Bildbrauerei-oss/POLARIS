@@ -6,10 +6,10 @@ import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { supabase } from '../lib/supabase'
 import { NAV_GROUPS } from '../nav'
 import {
-  RefreshCw, Plus, X, ExternalLink, ChevronRight,
+  RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
-  TrendingUp, TrendingDown, Minus, Zap, User, Search,
-  MessageSquare, Send, Calendar, Star, ArrowUpRight, AlertTriangle
+  TrendingUp, TrendingDown, Send,
+  ArrowUpRight, AlertTriangle
 } from 'lucide-react'
 
 const GROUP_COLORS = {
@@ -25,10 +25,10 @@ const QUICKLINKS = [
   { path: '/social-media-fabrik', label: 'Social Media Fabrik', icon: Megaphone,  color: '#F97316' },
 ]
 const CHAT_SUGGESTIONS = [
-  'Aktuelle Alerts anzeigen',
-  'Nächste OB-Wahlen in BW',
-  'Landtagswahlen 2026',
-  'Sentiment zu Jürgen Roth',
+  'Heutige Lage in 3 Sätzen',
+  'Merz-Narrativ diese Woche',
+  'Wer greift die CDU gerade an?',
+  'Strategische Empfehlung für morgen',
 ]
 
 // Count-up hook
@@ -89,7 +89,7 @@ function SentimentDot({ s }) {
 }
 
 function FeedItem({ a, index }) {
-  const urgent = a.handlungsbedarf && a.sentiment === 'negativ'
+  const urgent = a.handlungsbedarf
   const ago = a.datum ? (() => {
     const m = (Date.now() - new Date(a.datum)) / 60000
     return m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}T`
@@ -138,11 +138,11 @@ function FeedItem({ a, index }) {
   )
 }
 
-// Simple chat component
-function PolarisChat() {
+// POLARIS Chat — politisches Gehirn mit Live-Kontext
+function PolarisChat({ articles = [] }) {
   const [messages, setMessages] = useState([{
     role: 'assistant',
-    text: 'Guten Tag, Jan. Womit kann ich dir heute helfen?',
+    text: 'Moin Jan. Was brauchst du – Lage, Gegnerzug, oder einen Winkel für morgen?',
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -153,12 +153,44 @@ function PolarisChat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Live-Kontext aus Medien-Monitor: aktuelle Artikel mit Analyse
+  function buildContext() {
+    if (!articles.length) return 'Keine aktuellen Artikel im Feed.'
+    const top = articles.slice(0, 25).map((a, i) => {
+      const bits = [
+        a.titel,
+        a.zusammenfassung ? `— ${a.zusammenfassung}` : '',
+        a.cdu_wirkung ? `[CDU ${a.cdu_wirkung}]` : '',
+        a.handlungsbedarf ? '[DRINGEND]' : '',
+        a.quelle ? `(${a.quelle})` : '',
+      ].filter(Boolean).join(' ')
+      return `${i + 1}. ${bits}`
+    }).join('\n')
+    return `AKTUELLER MEDIEN-FEED (Top 25 von ${articles.length}):\n${top}`
+  }
+
   async function send(text) {
     const q = text || input.trim()
     if (!q) return
     setInput('')
     setMessages(m => [...m, { role: 'user', text: q }])
     setLoading(true)
+
+    const system = `Du bist POLARIS, das politische Gehirn von Bildbrauerei für Jan Schlegel (Head of Politik).
+
+Deine Rolle:
+- Du denkst wie ein erfahrener CDU-Wahlkampfmanager: strategisch, scharf, manchmal mit trockenem Humor.
+- Du bist die analytische Instanz: Du liest den Feed, erkennst Muster, ziehst Schlüsse.
+- Du gibst Einschätzungen, keine Zusammenfassungen. Beziehe Position, benenne Risiken, schlage Züge vor.
+- Knapp, konkret, deutsch. Keine PR-Floskeln. Kein Disclaimer-Geschwurbel.
+- Wenn dich Jan nach Lage fragt: Nenne 2–3 Top-Narrative mit Gegnerbezug und CDU-Wirkung.
+- Wenn er nach Empfehlungen fragt: Klare These + nächster Schritt. Keine Aufzählung ohne Priorisierung.
+
+Kontext (aktuelle Kampagne): Jürgen Roth, OB-Wahl Villingen-Schwenningen, September 2026, parteilos mit CDU-Unterstützung. OB-Wahl-Rhythmus BW: 8 Jahre.
+
+${buildContext()}
+
+Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Nummer, wenn sie deine Analyse stützen.`
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -171,8 +203,8 @@ function PolarisChat() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-5',
-          max_tokens: 600,
-          system: `Du bist POLARIS, der politische KI-Assistent von Bildbrauerei Heidelberg für Jan Schlegel. Antworte kurz, präzise und professionell auf Deutsch. Aktuelles Projekt: Jürgen Roth, OB-Wahl Villingen-Schwenningen, September 2026, parteilos mit CDU-Unterstützung. Du kennst die deutschen OB-Wahl-Rhythmen (Baden-Württemberg: 8 Jahre). Sei direkt und nützlich.`,
+          max_tokens: 900,
+          system,
           messages: [{ role: 'user', content: q }],
         }),
       })
@@ -282,23 +314,9 @@ export default function CommandCenter() {
 
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
-  const { articles, loading, refetch } = useArticles({ limit: 30 })
-  const urgent = articles.filter(a => a.handlungsbedarf && a.sentiment === 'negativ')
+  const { articles, loading, refetch } = useArticles({ limit: 60 })
+  const urgent = articles.filter(a => a.handlungsbedarf)
   const todayCount = articles.filter(a => a.datum && new Date(a.datum).toDateString() === new Date().toDateString()).length
-
-  const [targets, setTargets] = useState(() => { try { return JSON.parse(localStorage.getItem('polaris_targets')) || [] } catch { return [] } })
-  const [search, setSearch] = useState('')
-
-  function addTarget() {
-    const name = search.trim()
-    if (!name || targets.find(t => t.name === name)) return
-    const next = [...targets, { name, addedAt: new Date().toISOString() }]
-    setTargets(next); localStorage.setItem('polaris_targets', JSON.stringify(next)); setSearch('')
-  }
-  function removeTarget(name) {
-    const next = targets.filter(t => t.name !== name)
-    setTargets(next); localStorage.setItem('polaris_targets', JSON.stringify(next))
-  }
 
   async function handleSync() {
     setSyncing(true); setSyncMsg(null)
@@ -347,7 +365,6 @@ export default function CommandCenter() {
           <div className="metric-cards" style={{ display: 'flex', gap: '1rem' }}>
             <MetricCard label="Artikel heute" value={todayCount} color="#52b7c1" loading={loading} />
             <MetricCard label="Offene Alerts" value={urgent.length} color="#bf111b" loading={loading} />
-            <MetricCard label="Tracked Politiker" value={targets.length} color="#ffa600" />
             <MetricCard label="Artikel gesamt" value={articles.length} color="#A855F7" loading={loading} />
 
             {/* Sync button as 5th card */}
@@ -410,8 +427,8 @@ export default function CommandCenter() {
         ))}
       </div>
 
-      {/* 3-COLUMN MAIN */}
-      <div className="main-grid-3col" style={{ display: 'grid', gridTemplateColumns: '1fr 280px 300px', gap: '1rem', marginBottom: '1.5rem' }}>
+      {/* 2-COLUMN MAIN: Feed + breiter Chat */}
+      <div className="main-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
 
         {/* COL 1: LIVE FEED */}
         <Section title="Morning Briefing · Live Feed" color="#52b7c1" right={
@@ -421,7 +438,7 @@ export default function CommandCenter() {
             Alle <ChevronRight size={11} />
           </NavLink>
         }>
-          <div style={{ maxHeight: 520, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 560, overflowY: 'auto' }}>
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>Wird geladen…</div>
             ) : articles.length === 0 ? (
@@ -434,83 +451,15 @@ export default function CommandCenter() {
           </div>
         </Section>
 
-        {/* COL 2: KALENDER + POLITIKER RADAR */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-          {/* Aktuelles Projekt */}
-          <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 16, padding: '1.25rem', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #bf111b, #52b7c1)' }} />
-            <p style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginBottom: '0.875rem' }}>Aktuelles Projekt</p>
-            <div style={{ borderLeft: '3px solid #bf111b', paddingLeft: '0.875rem' }}>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1.125rem', color: '#fff', marginBottom: '0.25rem' }}>Jürgen Roth</p>
-              <p style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', fontSize: '0.8125rem', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>OB-Wahl · Villingen-Schwenningen</p>
-              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: '0.125rem' }}>Parteilos · CDU-Unterstützung</p>
-              <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.5rem', fontWeight: 700, background: 'rgba(255,166,0,0.1)', color: '#ffa600', border: '1px solid rgba(255,166,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: 4, letterSpacing: '0.08em' }}>SEPT 2026</span>
-                <span style={{ fontSize: '0.5rem', fontWeight: 700, background: 'rgba(82,183,193,0.1)', color: '#52b7c1', border: '1px solid rgba(82,183,193,0.2)', padding: '0.2rem 0.5rem', borderRadius: 4, letterSpacing: '0.08em' }}>VORBEREITUNG</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Politiker Radar */}
-          <Section title="Politiker Radar" color="#A855F7" right={
-            <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{targets.length} Targets</span>
-          }>
-            <div style={{ padding: '1rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.875rem' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <Search size={11} style={{ position: 'absolute', left: '0.625rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)', pointerEvents: 'none' }} />
-                  <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTarget()}
-                    placeholder="Name + Enter"
-                    style={{ width: '100%', padding: '0.5rem 0.625rem 0.5rem 2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#fff', fontSize: '0.8125rem', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
-                    onFocus={e => e.target.style.borderColor = 'rgba(168,85,247,0.5)'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'} />
-                </div>
-                <button onClick={addTarget} disabled={!search.trim()} style={{ width: 33, height: 33, background: search.trim() ? '#A855F7' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 7, cursor: search.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
-                  <Plus size={14} color="#fff" />
-                </button>
-              </div>
-
-              {targets.length === 0 && (
-                <div style={{ marginBottom: '0.625rem' }}>
-                  <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.2)', marginBottom: '0.375rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Vorschläge</p>
-                  {['Jürgen Roth', 'Friedrich Merz', 'Olaf Scholz', 'Markus Söder'].map(n => (
-                    <button key={n} onClick={() => { const next = [...targets, { name: n, addedAt: new Date().toISOString() }]; setTargets(next); localStorage.setItem('polaris_targets', JSON.stringify(next)) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.35rem 0.5rem', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: '0.8125rem', textAlign: 'left', transition: 'all 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.08)'; e.currentTarget.style.color = '#fff' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)' }}>
-                      <Plus size={9} color="rgba(255,255,255,0.2)" /> {n}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', maxHeight: 200, overflowY: 'auto' }}>
-                {targets.map(t => (
-                  <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 0.625rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8 }}>
-                    <User size={11} color="#A855F7" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: '0.8125rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-                    <button onClick={() => removeTarget(t.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.15)', display: 'flex', transition: 'color 0.1s' }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#bf111b'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.15)'}>
-                      <X size={11} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Section>
-        </div>
-
-        {/* COL 3: POLARIS CHAT */}
-        <Section title="POLARIS Chat" color="#ffa600" right={
+        {/* COL 2: POLARIS CHAT (breit) */}
+        <Section title="POLARIS Chat · Das politische Gehirn" color="#ffa600" right={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
             <span style={{ width: 5, height: 5, background: '#22c55e', borderRadius: '50%', animation: 'pulse-dot 2s ease infinite' }} />
-            <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Claude Sonnet 4</span>
+            <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Claude Sonnet 4.5 · Live-Feed</span>
           </div>
         }>
-          <div style={{ height: 480 }}>
-            <PolarisChat />
+          <div style={{ height: 560 }}>
+            <PolarisChat articles={articles} />
           </div>
         </Section>
       </div>
