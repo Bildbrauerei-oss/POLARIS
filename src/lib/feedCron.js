@@ -22,12 +22,13 @@ export async function runFeedSync(force = false) {
   const errors = []
 
   try {
-    // VIPs + Monitoring-Listen aus Supabase laden
-    const [{ data: vips }, { data: listen }] = await Promise.all([
-      supabase.from('vip_liste').select('name'),
-      supabase.from('monitoring_listen').select('*').eq('aktiv', true),
-    ])
-    const extraPolitiker = (vips || []).map(v => v.name)
+    // VIPs aus localStorage, Monitoring-Listen aus Supabase
+    let extraPolitiker = []
+    try {
+      const stored = localStorage.getItem('polaris_vip_liste')
+      extraPolitiker = stored ? JSON.parse(stored) : []
+    } catch {}
+    const { data: listen } = await supabase.from('monitoring_listen').select('*').eq('aktiv', true)
     const monitoringListen = listen || []
 
     log.push('RSS-Feeds werden abgerufen…')

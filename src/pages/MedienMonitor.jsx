@@ -8,6 +8,34 @@ import {
   User, Plus, X, ChevronDown, ChevronUp, Star
 } from 'lucide-react'
 
+const VIP_STORAGE_KEY = 'polaris_vip_liste'
+const DEFAULT_VIPS = [
+  'Friedrich Merz','Thorsten Frei','Nina Warken','Gunther Krichbaum',
+  'Roderich Kiesewetter','Andreas Jung','Annegret Kramp-Karrenbauer',
+  'Hendrik Wüst','Daniel Günther','Peter Hauk','Paul Ziemiak',
+  'Serap Güler','Christina Stumpp','Ronja Kemmer','Wiebke Winter',
+  'Yvonne Magwas','Karl-Josef Laumann','Volker Bouffier','Silvia Breher',
+  'Hermann Färber','Manuel Hagel','Tobias Vogt','Thomas Strobl',
+  'Nicole Razavi','Marion Gentges','Nicole Hoffmeister-Kraut','Winfried Mack',
+  'Bastian Schneider','Alexander Becker','Michael Preusch','Michael Möslang',
+  'Clemens Baumgärtner','Jürgen Roth','Alexander Föhr','Karl Rombach',
+  'Tobias Wald','Claudia Martin','Claus Paal',
+]
+
+function loadVips() {
+  try {
+    const stored = localStorage.getItem(VIP_STORAGE_KEY)
+    if (stored) return JSON.parse(stored)
+    // Erste Verwendung: Standardliste vorbelegen
+    localStorage.setItem(VIP_STORAGE_KEY, JSON.stringify(DEFAULT_VIPS))
+    return DEFAULT_VIPS
+  } catch { return DEFAULT_VIPS }
+}
+
+function saveVips(vips) {
+  localStorage.setItem(VIP_STORAGE_KEY, JSON.stringify(vips))
+}
+
 function sentimentStyle(s) {
   if (s === 'positiv') return { color: '#22C55E', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.25)' }
   if (s === 'negativ') return { color: '#ff9999', bg: 'rgba(191,17,27,0.1)', border: 'rgba(191,17,27,0.25)' }
@@ -109,30 +137,21 @@ function ArticleCard({ a, i }) {
   )
 }
 
-// VIP Sidebar
+// VIP Sidebar — localStorage
 function VipSidebar({ selectedVip, onSelectVip }) {
-  const [vips, setVips] = useState([])
+  const [vips, setVips] = useState(() => loadVips().sort((a, b) => a.localeCompare(b)))
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    supabase.from('vip_liste').select('*').order('name').then(({ data }) => {
-      setVips(data || [])
-      setLoading(false)
-    })
-  }, [])
-
-  async function addVip() {
+  function addVip() {
     const name = input.trim()
-    if (!name || vips.find(v => v.name === name)) return
-    const { data } = await supabase.from('vip_liste').insert({ name }).select().single()
-    if (data) setVips(v => [...v, data].sort((a, b) => a.name.localeCompare(b.name)))
-    setInput('')
+    if (!name || vips.includes(name)) return
+    const next = [...vips, name].sort((a, b) => a.localeCompare(b))
+    setVips(next); saveVips(next); setInput('')
   }
 
-  async function removeVip(id, name) {
-    await supabase.from('vip_liste').delete().eq('id', id)
-    setVips(v => v.filter(x => x.id !== id))
+  function removeVip(name) {
+    const next = vips.filter(v => v !== name)
+    setVips(next); saveVips(next)
     if (selectedVip === name) onSelectVip(null)
   }
 
@@ -144,60 +163,34 @@ function VipSidebar({ selectedVip, onSelectVip }) {
         <span style={{ marginLeft: 'auto', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.2)' }}>{vips.length}</span>
       </div>
 
-      {/* Add input */}
       <div style={{ padding: '0.625rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '0.375rem' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addVip()}
           placeholder="Name + Enter"
-          style={{
-            flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 6, padding: '0.375rem 0.5rem', color: '#fff', fontSize: '0.75rem',
-            outline: 'none', fontFamily: 'inherit',
-          }}
+          style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '0.375rem 0.5rem', color: '#fff', fontSize: '0.75rem', outline: 'none', fontFamily: 'inherit' }}
           onFocus={e => e.target.style.borderColor = 'rgba(255,166,0,0.4)'}
           onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
         />
-        <button onClick={addVip} disabled={!input.trim()} style={{
-          width: 28, height: 28, background: input.trim() ? '#ffa600' : 'rgba(255,255,255,0.05)',
-          border: 'none', borderRadius: 6, cursor: input.trim() ? 'pointer' : 'not-allowed',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          transition: 'background 0.15s',
-        }}>
+        <button onClick={addVip} disabled={!input.trim()} style={{ width: 28, height: 28, background: input.trim() ? '#ffa600' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 6, cursor: input.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
           <Plus size={12} color="#fff" />
         </button>
       </div>
 
-      {/* VIP list */}
-      <div style={{ maxHeight: 340, overflowY: 'auto' }}>
-        {loading ? (
-          <div style={{ padding: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Laden…</div>
-        ) : vips.length === 0 ? (
-          <div style={{ padding: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Noch keine VIPs</div>
-        ) : vips.map(v => (
-          <div key={v.id}
-            onClick={() => onSelectVip(selectedVip === v.name ? null : v.name)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
-              padding: '0.5rem 0.75rem',
-              background: selectedVip === v.name ? 'rgba(255,166,0,0.08)' : 'transparent',
-              borderLeft: `2px solid ${selectedVip === v.name ? '#ffa600' : 'transparent'}`,
-              cursor: 'pointer', transition: 'all 0.12s',
-            }}
-            onMouseEnter={e => { if (selectedVip !== v.name) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-            onMouseLeave={e => { if (selectedVip !== v.name) e.currentTarget.style.background = 'transparent' }}
+      <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+        {vips.map(name => (
+          <div key={name}
+            onClick={() => onSelectVip(selectedVip === name ? null : name)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.75rem', background: selectedVip === name ? 'rgba(255,166,0,0.08)' : 'transparent', borderLeft: `2px solid ${selectedVip === name ? '#ffa600' : 'transparent'}`, cursor: 'pointer', transition: 'all 0.12s' }}
+            onMouseEnter={e => { if (selectedVip !== name) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+            onMouseLeave={e => { if (selectedVip !== name) e.currentTarget.style.background = 'transparent' }}
           >
-            <User size={10} color={selectedVip === v.name ? '#ffa600' : 'rgba(255,255,255,0.3)'} style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: '0.8125rem', color: selectedVip === v.name ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {v.name}
-            </span>
-            <button
-              onClick={e => { e.stopPropagation(); removeVip(v.id, v.name) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.12)', display: 'flex', transition: 'color 0.1s', padding: 2 }}
+            <User size={10} color={selectedVip === name ? '#ffa600' : 'rgba(255,255,255,0.3)'} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: '0.8125rem', color: selectedVip === name ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+            <button onClick={e => { e.stopPropagation(); removeVip(name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.12)', display: 'flex', transition: 'color 0.1s', padding: 2 }}
               onMouseEnter={e => e.currentTarget.style.color = '#bf111b'}
-              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}
-            >
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}>
               <X size={10} />
             </button>
           </div>
