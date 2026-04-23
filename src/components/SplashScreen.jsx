@@ -2,34 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function SplashScreen({ onDone }) {
-  const [phase, setPhase] = useState('in')
+  const [visible, setVisible] = useState(true)
   const [GlobeComponent, setGlobeComponent] = useState(null)
   const [tick, setTick] = useState(0)
   const globeRef = useRef(null)
 
   useEffect(() => {
     import('react-globe.gl').then(mod => setGlobeComponent(() => mod.default))
-
-    // Tick for live counter / progress
     const interval = setInterval(() => setTick(t => t + 1), 100)
-
-    // 10s total, then fade out
-    const timer = setTimeout(() => {
-      setPhase('out')
-      setTimeout(() => {
-        onDone()
-      }, 800)
-    }, 10000)
-
+    const timer = setTimeout(() => { setVisible(false) }, 10000)
     return () => { clearTimeout(timer); clearInterval(interval) }
   }, [])
 
-  function skip() {
-    setPhase('out')
-    setTimeout(() => {
-      onDone()
-    }, 600)
-  }
+  function skip() { setVisible(false) }
 
   // Globe data — dense teal dots + gold highlights + red signals
   const dots = Array.from({ length: 1200 }, (_, i) => ({
@@ -53,16 +38,15 @@ export default function SplashScreen({ onDone }) {
 
   const progress = Math.min(tick / 100, 1) // 0→1 over 10s
 
-  if (phase === 'done') return null
-
   return (
-    <AnimatePresence>
-      {phase !== 'done' && (
+    <AnimatePresence onExitComplete={onDone}>
+      {visible && (
         <motion.div
           key="splash"
           initial={{ opacity: 0 }}
-          animate={{ opacity: phase === 'out' ? 0 : 1 }}
-          transition={{ duration: phase === 'out' ? 0.8 : 0.6 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6 }}
           onClick={skip}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
