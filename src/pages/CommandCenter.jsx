@@ -310,7 +310,7 @@ export default function CommandCenter() {
   const sortedFeed = [...urgent, ...articles.filter(a => !(a.handlungsbedarf && a.sentiment === 'negativ'))].slice(0, 20)
 
   return (
-    <div style={{ maxWidth: 1400 }}>
+    <div style={{ width: '100%' }}>
 
       {/* HERO */}
       <div style={{

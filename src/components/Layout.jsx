@@ -37,7 +37,7 @@ export default function Layout({ onLogout }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            style={{ padding: '2rem 2.5rem' }}
+            style={{ padding: '2rem 2.5rem', maxWidth: '100%', width: '100%' }}
           >
             <Outlet />
           </motion.div>
