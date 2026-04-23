@@ -20,7 +20,7 @@ export default function ModulePage() {
   )
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ width: '100%' }}>
       <PageHeader title={module.label} description={module.desc} status="dev" icon={module.icon} color={color} />
 
       <motion.div

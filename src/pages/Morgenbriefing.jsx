@@ -116,7 +116,7 @@ Antworte auf Deutsch, prägnant, max. 500 Wörter. Nutze ## für Überschriften 
   }
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ width: '100%' }}>
       <PageHeader
         title="Morgenbriefing"
         description={`KI-Tagesbriefing · ${today}`}

@@ -51,7 +51,7 @@ export default function MedienMonitor() {
   const urgent = articles.filter(a => a.handlungsbedarf && a.sentiment === 'negativ')
 
   return (
-    <div style={{ maxWidth: 1200 }}>
+    <div style={{ width: '100%' }}>
       <PageHeader title="Medien-Monitor" description="Alle analysierten Artikel aus Nachrichten, Politik und CDU-Quellen." icon={Newspaper} color="#52b7c1">
         <button onClick={handleSync} disabled={syncing} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
