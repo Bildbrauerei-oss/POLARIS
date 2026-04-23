@@ -1,4 +1,4 @@
-const CORS_PROXY = 'https://api.allorigins.win/raw?url='
+const CORS_PROXY = '/api/fetch-feed?url='
 
 export const DEFAULT_POLITIKER = [
   'Friedrich Merz',

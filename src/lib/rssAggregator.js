@@ -37,7 +37,7 @@ const RSS_FEEDS = {
   ],
 }
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url='
+const CORS_PROXY = '/api/fetch-feed?url='
 
 async function fetchFeed(url, kategorie) {
   try {
