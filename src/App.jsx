@@ -13,20 +13,21 @@ const CUSTOM_PAGES = {
   '/medien-monitor': MedienMonitor,
 }
 
-function useAuth() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('polaris_auth') === '1')
-  return {
-    authed,
-    login: () => setAuthed(true),
-    logout: () => { sessionStorage.removeItem('polaris_auth'); setAuthed(false) },
-  }
-}
-
 export default function App() {
-  const { authed, login, logout } = useAuth()
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('polaris_auth') === '1')
   const [splashDone, setSplashDone] = useState(false)
 
-  // Show splash only when authenticated
+  function login() {
+    setAuthed(true)
+    setSplashDone(false) // always show splash on login
+  }
+
+  function logout() {
+    sessionStorage.removeItem('polaris_auth')
+    setAuthed(false)
+    setSplashDone(false)
+  }
+
   if (authed && !splashDone) {
     return <SplashScreen onDone={() => setSplashDone(true)} />
   }
@@ -34,7 +35,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={!authed ? <Login onLogin={() => { login() }} /> : <Navigate to="/" />} />
+        <Route path="/login" element={!authed ? <Login onLogin={login} /> : <Navigate to="/" />} />
         <Route path="/" element={authed ? <Layout onLogout={logout} /> : <Navigate to="/login" />}>
           <Route index element={<CommandCenter />} />
           {ALL_MODULES.filter(m => m.path !== '/').map(m => {

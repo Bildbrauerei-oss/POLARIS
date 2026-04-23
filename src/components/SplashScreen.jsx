@@ -8,9 +8,6 @@ export default function SplashScreen({ onDone }) {
   const globeRef = useRef(null)
 
   useEffect(() => {
-    const shown = sessionStorage.getItem('polaris_splash_shown')
-    if (shown) { onDone(); return }
-
     import('react-globe.gl').then(mod => setGlobeComponent(() => mod.default))
 
     // Tick for live counter / progress
@@ -20,7 +17,6 @@ export default function SplashScreen({ onDone }) {
     const timer = setTimeout(() => {
       setPhase('out')
       setTimeout(() => {
-        sessionStorage.setItem('polaris_splash_shown', '1')
         onDone()
       }, 800)
     }, 10000)
@@ -31,7 +27,6 @@ export default function SplashScreen({ onDone }) {
   function skip() {
     setPhase('out')
     setTimeout(() => {
-      sessionStorage.setItem('polaris_splash_shown', '1')
       onDone()
     }, 600)
   }
