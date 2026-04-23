@@ -127,3 +127,52 @@ a { color: inherit; text-decoration: none; }
 /* Teal glow utility */
 .glow-teal { box-shadow: 0 0 32px rgba(82,183,193,0.2); }
 .glow-gold  { box-shadow: 0 0 24px rgba(255,166,0,0.25); }
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  /* CommandCenter Hero */
+  .hero-metrics { flex-wrap: wrap !important; }
+
+  /* 3-column → 1-column */
+  .main-grid-3col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 6-col quicklinks → 3-col */
+  .quicklinks-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Hero padding */
+  .hero-section {
+    padding: 1.25rem !important;
+  }
+
+  /* Metric cards: 2-col on mobile */
+  .metric-cards {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Stats grid */
+  .stats-grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Page header */
+  .page-header-inner {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Chat height */
+  .chat-column { height: 360px !important; }
+
+  /* Hide less important columns on very small screens */
+  @media (max-width: 480px) {
+    .quicklinks-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+}

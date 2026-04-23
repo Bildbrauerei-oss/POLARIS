@@ -343,7 +343,7 @@ export default function CommandCenter() {
           </p>
 
           {/* Metric cards */}
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="metric-cards" style={{ display: 'flex', gap: '1rem' }}>
             <MetricCard label="Artikel heute" value={todayCount} color="#52b7c1" loading={loading} />
             <MetricCard label="Offene Alerts" value={urgent.length} color="#bf111b" loading={loading} />
             <MetricCard label="Tracked Politiker" value={targets.length} color="#ffa600" />
@@ -383,7 +383,7 @@ export default function CommandCenter() {
       </div>
 
       {/* SCHNELLZUGRIFF */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="quicklinks-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
         {QUICKLINKS.map((item, i) => (
           <motion.div key={item.path}
             initial={{ opacity: 0, y: 16 }}
@@ -410,7 +410,7 @@ export default function CommandCenter() {
       </div>
 
       {/* 3-COLUMN MAIN */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px 300px', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="main-grid-3col" style={{ display: 'grid', gridTemplateColumns: '1fr 280px 300px', gap: '1rem', marginBottom: '1.5rem' }}>
 
         {/* COL 1: LIVE FEED */}
         <Section title="Morning Briefing · Live Feed" color="#52b7c1" right={

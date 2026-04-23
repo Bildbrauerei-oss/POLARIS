@@ -71,7 +71,7 @@ export default function MedienMonitor() {
       </PageHeader>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div className="stats-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'Artikel gesamt', value: count, color: '#52b7c1' },
           { label: 'Dringend', value: urgent.length, color: '#bf111b' },
