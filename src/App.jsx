@@ -1,0 +1,50 @@
+import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Login from './pages/Login'
+import Layout from './components/Layout'
+import SplashScreen from './components/SplashScreen'
+import CommandCenter from './pages/CommandCenter'
+import MedienMonitor from './pages/MedienMonitor'
+import ModulePage from './pages/ModulePage'
+import NotFound from './pages/NotFound'
+import { ALL_MODULES } from './nav'
+
+const CUSTOM_PAGES = {
+  '/medien-monitor': MedienMonitor,
+}
+
+function useAuth() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('polaris_auth') === '1')
+  return {
+    authed,
+    login: () => setAuthed(true),
+    logout: () => { sessionStorage.removeItem('polaris_auth'); setAuthed(false) },
+  }
+}
+
+export default function App() {
+  const { authed, login, logout } = useAuth()
+  const [splashDone, setSplashDone] = useState(false)
+
+  // Show splash only when authenticated
+  if (authed && !splashDone) {
+    return <SplashScreen onDone={() => setSplashDone(true)} />
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={!authed ? <Login onLogin={() => { login() }} /> : <Navigate to="/" />} />
+        <Route path="/" element={authed ? <Layout onLogout={logout} /> : <Navigate to="/login" />}>
+          <Route index element={<CommandCenter />} />
+          {ALL_MODULES.filter(m => m.path !== '/').map(m => {
+            const Page = CUSTOM_PAGES[m.path] || ModulePage
+            return <Route key={m.path} path={m.path.slice(1)} element={<Page />} />
+          })}
+          <Route path="command-center" element={<Navigate to="/" />} />
+        </Route>
+        <Route path="*" element={authed ? <NotFound /> : <Navigate to="/login" />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

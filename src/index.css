@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  /* CDU Corporate Design */
+  --cdu-teal:        #52b7c1;
+  --cdu-teal-10:     #f2f8fa;
+  --cdu-teal-25:     #ddeef1;
+  --cdu-teal-60:     #a7d5dc;
+  --cdu-blue:        #2d3c4b;
+  --cdu-blue-10:     #e5e5e9;
+  --cdu-blue-25:     #bec1c7;
+  --cdu-blue-60:     #737986;
+  --cdu-gold:        #ffa600;
+  --cdu-red:         #bf111b;
+  --white:           #ffffff;
+
+  /* Backgrounds */
+  --bg:              #0a0f1a;
+  --surface:         #2d3c4b;
+  --surface2:        #1e2d3a;
+  --surface3:        #162230;
+
+  /* Borders */
+  --border:          rgba(82,183,193,0.2);
+  --border-hover:    rgba(82,183,193,0.4);
+
+  /* Text */
+  --text:            #ffffff;
+  --text-muted:      rgba(255,255,255,0.65);
+  --text-subtle:     rgba(255,255,255,0.35);
+
+  /* Status */
+  --green:           #22c55e;
+  --yellow:          #ffa600;
+  --red:             #bf111b;
+  --blue-accent:     #52b7c1;
+
+  --radius:          12px;
+  --radius-sm:       8px;
+  --radius-xs:       6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+}
+
+.serif { font-family: 'IBM Plex Serif', Georgia, serif; }
+
+#root { min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(82,183,193,0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(82,183,193,0.5); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.page-enter { animation: fadeIn 0.4s ease forwards; }
+.slide-up   { animation: slideUp 0.3s ease forwards; }
+
+/* CDU-Bogen decorative arch */
+.cdu-arch {
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  border: 40px solid rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+.cdu-arch-2 {
+  position: absolute;
+  right: 40px;
+  top: 40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 30px solid rgba(255,255,255,0.05);
+  pointer-events: none;
+}
+
+/* Teal glow utility */
+.glow-teal { box-shadow: 0 0 32px rgba(82,183,193,0.2); }
+.glow-gold  { box-shadow: 0 0 24px rgba(255,166,0,0.25); }
