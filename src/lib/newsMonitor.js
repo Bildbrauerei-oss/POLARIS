@@ -1,22 +1,12 @@
 const CORS_PROXY = '/api/fetch-feed?url='
 
-export const DEFAULT_POLITIKER = [
-  'Friedrich Merz',
-  'Olaf Scholz',
-  'Robert Habeck',
-  'Christian Lindner',
-  'Alice Weidel',
-  'Markus Söder',
-  'Hendrik Wüst',
-  'Daniel Günther',
-]
-
+// Nur Themen — Politiker kommen über VIP-Liste gebatcht
 export const DEFAULT_THEMEN = [
-  'Migration',
-  'Wirtschaft Deutschland',
-  'CDU',
-  'Bundesregierung',
-  'Wahlkampf',
+  'CDU Deutschland',
+  'Bundesregierung Politik',
+  'Wahlkampf Deutschland',
+  'Migration Deutschland',
+  'Wirtschaftspolitik Deutschland',
 ]
 
 function googleNewsUrl(query) {
@@ -63,13 +53,24 @@ function parseGoogleNews(xml, query, monitoringListe = null) {
   return results
 }
 
-export async function monitorAll(extraPolitiker = [], extraThemen = [], monitoringListen = []) {
-  const politiker = [...DEFAULT_POLITIKER, ...extraPolitiker]
+// VIPs in Batches von 6 zusammenfassen → "Name1" OR "Name2" OR ...
+function chunkArray(arr, size) {
+  const chunks = []
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size))
+  return chunks
+}
+
+export async function monitorAll(vipNamen = [], extraThemen = [], monitoringListen = []) {
   const themen = [...DEFAULT_THEMEN, ...extraThemen]
 
+  // VIPs gebatcht (6 pro Query)
+  const vipBatches = chunkArray(vipNamen, 6).map(batch =>
+    fetchGoogleNews(batch.map(n => `"${n}"`).join(' OR '))
+  )
+
   const promises = [
-    ...politiker.map(p => fetchGoogleNews(p)),
     ...themen.map(t => fetchGoogleNews(t)),
+    ...vipBatches,
     ...monitoringListen.map(l => fetchGoogleNews(l.beschreibung, l.name)),
   ]
 
