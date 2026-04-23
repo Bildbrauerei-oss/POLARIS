@@ -19,8 +19,7 @@ export default function App() {
 
   function login() {
     setAuthed(true)
-    // splash disabled temporarily — was causing black screen
-    // setShowSplash(true)
+    setShowSplash(true)
   }
 
   function logout() {
