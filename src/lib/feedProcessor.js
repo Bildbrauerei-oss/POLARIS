@@ -1,10 +1,11 @@
 import { supabase } from './supabase'
 
+const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
+
 export async function saveArticles(articles) {
   if (!articles.length) return { saved: 0, skipped: 0 }
 
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 30)
+  const cutoff = new Date(Date.now() - SEVEN_DAYS)
 
   const filtered = articles.filter(a => {
     try { return new Date(a.datum) > cutoff } catch { return false }
@@ -30,6 +31,7 @@ export async function saveArticles(articles) {
     rohtext: a.rohtext?.slice(0, 2000) || '',
     kategorie: a.kategorie || 'news',
     suchbegriff: a.suchbegriff || null,
+    monitoring_liste: a.monitoring_liste || null,
     analysiert: false,
   }))
 
@@ -44,8 +46,7 @@ export async function saveArticles(articles) {
 }
 
 export async function deleteOldArticles() {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 30)
+  const cutoff = new Date(Date.now() - SEVEN_DAYS)
   await supabase.from('artikel').delete().lt('datum', cutoff.toISOString())
 }
 

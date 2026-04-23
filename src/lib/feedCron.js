@@ -2,6 +2,7 @@ import { fetchAllFeeds } from './rssAggregator'
 import { monitorAll } from './newsMonitor'
 import { saveArticles, deleteOldArticles } from './feedProcessor'
 import { analyzeUnprocessedArticles } from './feedAnalyzer'
+import { supabase } from './supabase'
 
 const CACHE_KEY = 'polaris_feed_last_run'
 const SIX_HOURS = 6 * 60 * 60 * 1000
@@ -21,12 +22,20 @@ export async function runFeedSync(force = false) {
   const errors = []
 
   try {
+    // VIPs + Monitoring-Listen aus Supabase laden
+    const [{ data: vips }, { data: listen }] = await Promise.all([
+      supabase.from('vip_liste').select('name'),
+      supabase.from('monitoring_listen').select('*').eq('aktiv', true),
+    ])
+    const extraPolitiker = (vips || []).map(v => v.name)
+    const monitoringListen = listen || []
+
     log.push('RSS-Feeds werden abgerufen…')
     const rssArticles = await fetchAllFeeds()
     log.push(`${rssArticles.length} Artikel aus RSS-Feeds geladen.`)
 
     log.push('Google News wird abgerufen…')
-    const newsArticles = await monitorAll()
+    const newsArticles = await monitorAll(extraPolitiker, [], monitoringListen)
     log.push(`${newsArticles.length} Artikel aus Google News geladen.`)
 
     const all = [...rssArticles, ...newsArticles]
@@ -35,12 +44,12 @@ export async function runFeedSync(force = false) {
     const { saved, skipped } = await saveArticles(all)
     log.push(`${saved} neue Artikel gespeichert, ${skipped} Duplikate übersprungen.`)
 
-    log.push('Alte Artikel werden gelöscht…')
+    log.push('Artikel älter als 7 Tage werden gelöscht…')
     await deleteOldArticles()
 
     log.push('Claude-Analyse wird gestartet…')
     const analyzed = await analyzeUnprocessedArticles()
-    log.push(`${analyzed} Artikel analysiert.`)
+    log.push(`${analyzed} politische Artikel analysiert.`)
 
     localStorage.setItem(CACHE_KEY, Date.now().toString())
     log.push('Sync abgeschlossen.')

@@ -23,19 +23,19 @@ function googleNewsUrl(query) {
   return `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=de&gl=DE&ceid=DE:de`
 }
 
-async function fetchGoogleNews(query) {
+async function fetchGoogleNews(query, monitoringListe = null) {
   try {
     const url = CORS_PROXY + encodeURIComponent(googleNewsUrl(query))
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const text = await res.text()
-    return parseGoogleNews(text, query)
+    return parseGoogleNews(text, query, monitoringListe)
   } catch {
     return []
   }
 }
 
-function parseGoogleNews(xml, query) {
+function parseGoogleNews(xml, query, monitoringListe = null) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(xml, 'text/xml')
   const items = doc.querySelectorAll('item')
@@ -54,29 +54,23 @@ function parseGoogleNews(xml, query) {
       url: link,
       datum: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
       rohtext: '',
-      kategorie: 'google_news',
+      kategorie: monitoringListe ? 'monitoring' : 'google_news',
       suchbegriff: query,
+      monitoring_liste: monitoringListe || null,
     })
   })
 
   return results
 }
 
-export async function politicianMonitor(name) {
-  return fetchGoogleNews(name)
-}
-
-export async function topicMonitor(thema) {
-  return fetchGoogleNews(thema)
-}
-
-export async function monitorAll(extraPolitiker = [], extraThemen = []) {
+export async function monitorAll(extraPolitiker = [], extraThemen = [], monitoringListen = []) {
   const politiker = [...DEFAULT_POLITIKER, ...extraPolitiker]
   const themen = [...DEFAULT_THEMEN, ...extraThemen]
 
   const promises = [
-    ...politiker.map(p => politicianMonitor(p)),
-    ...themen.map(t => topicMonitor(t)),
+    ...politiker.map(p => fetchGoogleNews(p)),
+    ...themen.map(t => fetchGoogleNews(t)),
+    ...monitoringListen.map(l => fetchGoogleNews(l.beschreibung, l.name)),
   ]
 
   const results = await Promise.allSettled(promises)
