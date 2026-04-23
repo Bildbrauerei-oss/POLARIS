@@ -4,12 +4,21 @@ import { motion } from 'framer-motion'
 export default function SplashScreen({ onDone }) {
   const [GlobeComponent, setGlobeComponent] = useState(null)
   const [tick, setTick] = useState(0)
+  const [dismissing, setDismissing] = useState(false)
   const globeRef = useRef(null)
+  const doneRef = useRef(false)
+
+  function dismiss() {
+    if (doneRef.current) return
+    doneRef.current = true
+    setDismissing(true)
+    setTimeout(onDone, 400)
+  }
 
   useEffect(() => {
     import('react-globe.gl').then(mod => setGlobeComponent(() => mod.default))
     const interval = setInterval(() => setTick(t => t + 1), 100)
-    const timer = setTimeout(onDone, 10000)
+    const timer = setTimeout(dismiss, 10000)
     return () => { clearTimeout(timer); clearInterval(interval) }
   }, [])
 
@@ -33,10 +42,9 @@ export default function SplashScreen({ onDone }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.6 }}
-      onClick={onDone}
+      animate={{ opacity: dismissing ? 0 : 1 }}
+      transition={{ duration: dismissing ? 0.4 : 0.6 }}
+      onClick={dismiss}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: '#020810',
