@@ -312,24 +312,58 @@ function MonitoringListenSidebar({ selectedListe, onSelectListe }) {
   )
 }
 
+async function fetchVipNews(name) {
+  try {
+    const query = `"${name}"`
+    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=de&gl=DE&ceid=DE:de`
+    const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xml, 'text/xml')
+    const items = doc.querySelectorAll('item')
+    const results = []
+    items.forEach(item => {
+      const titel = item.querySelector('title')?.textContent?.trim()
+      const url = item.querySelector('link')?.textContent?.trim()
+      const pubDate = item.querySelector('pubDate')?.textContent?.trim()
+      const quelle = item.querySelector('source')?.textContent?.trim()
+      if (!titel || !url) return
+      results.push({ id: url, titel, quelle: quelle || 'Google News', url, datum: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), sentiment: null, cdu_wirkung: null, handlungsbedarf: false, zusammenfassung: null })
+    })
+    return results.slice(0, 20)
+  } catch { return [] }
+}
+
 export default function MedienMonitor() {
   const [sentiment, setSentiment] = useState('')
   const [cduWirkung, setCduWirkung] = useState('')
   const [nurHandlung, setNurHandlung] = useState(false)
   const [selectedVip, setSelectedVip] = useState(null)
   const [selectedListe, setSelectedListe] = useState(null)
+  const [vipNews, setVipNews] = useState([])
+  const [vipLoading, setVipLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncLog, setSyncLog] = useState(null)
   const lastRun = getLastRun()
 
+  useEffect(() => {
+    if (!selectedVip) { setVipNews([]); return }
+    setVipLoading(true)
+    fetchVipNews(selectedVip).then(results => { setVipNews(results); setVipLoading(false) })
+  }, [selectedVip])
+
   const { articles, loading, count, refetch } = useArticles({
-    sentiment: sentiment || undefined,
-    cduWirkung: cduWirkung || undefined,
-    handlungsbedarf: nurHandlung || undefined,
-    suchbegriff: selectedVip || undefined,
+    sentiment: selectedVip ? undefined : (sentiment || undefined),
+    cduWirkung: selectedVip ? undefined : (cduWirkung || undefined),
+    handlungsbedarf: selectedVip ? undefined : (nurHandlung || undefined),
     monitoringListe: selectedListe || undefined,
     limit: 200,
   })
+
+  const displayArticles = selectedVip ? vipNews : articles
+  const displayLoading = selectedVip ? vipLoading : loading
+  const displayCount = selectedVip ? vipNews.length : count
 
   async function handleSync() {
     setSyncing(true); setSyncLog(null)
@@ -355,7 +389,7 @@ export default function MedienMonitor() {
             Medien-Monitor
           </h1>
           <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.35)' }}>
-            {activeFilter} · {count} Artikel
+            {activeFilter} · {displayCount} Artikel
             {lastRun && <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Sync: {lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
           </p>
         </div>
@@ -464,18 +498,20 @@ export default function MedienMonitor() {
           )}
 
           {/* Articles */}
-          {loading ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>Wird geladen…</div>
-          ) : articles.length === 0 ? (
+          {displayLoading ? (
+            <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>
+              {selectedVip ? `Suche Artikel zu ${selectedVip}…` : 'Wird geladen…'}
+            </div>
+          ) : displayArticles.length === 0 ? (
             <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '4rem', textAlign: 'center' }}>
               <Newspaper size={36} color="rgba(82,183,193,0.12)" style={{ margin: '0 auto 1rem' }} />
               <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.875rem' }}>
-                {selectedVip ? `Keine Artikel für ${selectedVip}` : selectedListe ? `Keine Artikel für Liste "${selectedListe}"` : 'Keine Artikel. Starte den Feed-Sync.'}
+                {selectedVip ? `Keine Artikel zu ${selectedVip}` : selectedListe ? `Keine Artikel für Liste "${selectedListe}"` : 'Keine Artikel. Starte den Feed-Sync.'}
               </p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              {articles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} />)}
+              {displayArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} />)}
             </div>
           )}
         </div>
