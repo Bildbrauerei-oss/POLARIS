@@ -15,7 +15,7 @@ export function useArticles({ kategorie, sentiment, cduWirkung, handlungsbedarf,
     if (cduWirkung) q = q.eq('cdu_wirkung', cduWirkung)
     if (handlungsbedarf) q = q.eq('handlungsbedarf', true)
     if (monitoringListe) q = q.eq('monitoring_liste', monitoringListe)
-    if (suchbegriff) q = q.eq('suchbegriff', suchbegriff)
+    if (suchbegriff) q = q.ilike('titel', `%${suchbegriff}%`)
     if (search) q = q.ilike('titel', `%${search}%`)
 
     const { data, count: total } = await q
