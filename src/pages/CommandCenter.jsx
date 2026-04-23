@@ -100,11 +100,12 @@ function FeedItem({ a, index }) {
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.04 }}
+      onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
       style={{
         display: 'flex', gap: '0.75rem', padding: '0.875rem 1.25rem',
         borderBottom: '1px solid rgba(255,255,255,0.04)',
         background: urgent ? 'rgba(191,17,27,0.05)' : 'transparent',
-        transition: 'background 0.15s', cursor: 'default',
+        transition: 'background 0.15s', cursor: a.url ? 'pointer' : 'default',
       }}
       whileHover={{ background: urgent ? 'rgba(191,17,27,0.08)' : 'rgba(82,183,193,0.04)' }}
     >
