@@ -5,7 +5,7 @@ import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { supabase } from '../lib/supabase'
 import {
   Newspaper, RefreshCw, ExternalLink, AlertTriangle, Clock,
-  User, Plus, X, ChevronDown, ChevronUp, Star
+  User, Plus, X, ChevronDown, ChevronUp, Star, Search
 } from 'lucide-react'
 
 const VIP_STORAGE_KEY = 'polaris_vip_liste'
@@ -380,8 +380,7 @@ async function fetchVipNewsMulti(names) {
 }
 
 export default function MedienMonitor() {
-  const [cduWirkung, setCduWirkung] = useState('')
-  const [nurHandlung, setNurHandlung] = useState(false)
+  const [searchText, setSearchText] = useState('')
   const [selectedVips, setSelectedVips] = useState([])
   const [selectedListe, setSelectedListe] = useState(null)
   const [vipNews, setVipNews] = useState([])
@@ -405,15 +404,17 @@ export default function MedienMonitor() {
   }, [selectedVips.join('|'), vipMode])
 
   const { articles, loading, count, refetch } = useArticles({
-    cduWirkung: vipMode ? undefined : (cduWirkung || undefined),
-    handlungsbedarf: vipMode ? undefined : (nurHandlung || undefined),
     monitoringListe: selectedListe || undefined,
+    search: vipMode ? undefined : (searchText || undefined),
     limit: 800,
   })
 
-  const displayArticles = vipMode ? vipNews : articles
+  const filteredVipNews = searchText
+    ? vipNews.filter(a => a.titel?.toLowerCase().includes(searchText.toLowerCase()))
+    : vipNews
+  const displayArticles = vipMode ? filteredVipNews : articles
   const displayLoading = vipMode ? vipLoading : loading
-  const displayCount = vipMode ? vipNews.length : count
+  const displayCount = vipMode ? filteredVipNews.length : count
 
   async function handleSync() {
     setSyncing(true); setSyncLog(null)
@@ -495,34 +496,26 @@ export default function MedienMonitor() {
 
         {/* RIGHT: Articles */}
         <div>
-          {/* Filter bar */}
-          <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '0.625rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <select value={cduWirkung} onChange={e => setCduWirkung(e.target.value)} style={{
-              background: '#0a0f1a', border: '1px solid rgba(82,183,193,0.18)', color: '#fff',
-              padding: '0.3rem 0.625rem', borderRadius: 7, fontSize: '0.75rem',
-              fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-            }}>
-              <option value="">CDU-Wirkung: Alle</option>
-              <option value="positiv">CDU ↑ Positiv</option>
-              <option value="neutral">CDU → Neutral</option>
-              <option value="negativ">CDU ↓ Negativ</option>
-            </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>
-              <input type="checkbox" checked={nurHandlung} onChange={e => setNurHandlung(e.target.checked)} style={{ accentColor: '#52b7c1' }} />
-              Nur Handlungsbedarf
-            </label>
-            {(vipMode || selectedListe || cduWirkung || nurHandlung) && (
-              <button onClick={() => { setSelectedVips([]); setSelectedListe(null); setCduWirkung(''); setNurHandlung(false) }}
-                style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'rgba(255,255,255,0.35)', fontSize: '0.6875rem', padding: '0.25rem 0.625rem', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+          {/* Suchfeld */}
+          <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '0.5rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <Search size={13} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
+            <input
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="Artikel durchsuchen…"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: '0.875rem', fontFamily: 'inherit' }}
+            />
+            {searchText && (
+              <button onClick={() => setSearchText('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', padding: 2, transition: 'color 0.1s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}>
-                Filter zurücksetzen
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                <X size={13} />
               </button>
             )}
           </div>
 
           {/* Urgent banner */}
-          {urgent.length > 0 && !nurHandlung && (
+          {urgent.length > 0 && (
             <div style={{ background: 'rgba(191,17,27,0.06)', border: '1px solid rgba(191,17,27,0.25)', borderRadius: 8, padding: '0.625rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
               <AlertTriangle size={14} color="#bf111b" />
               <span style={{ fontSize: '0.8125rem', color: '#ff9999', fontWeight: 600 }}>

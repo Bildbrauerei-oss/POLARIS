@@ -23,13 +23,21 @@ Für jeden Artikel bestimme:
 
 Antworte NUR als JSON-Array: [{"id":"...","ist_politisch":true,"sentiment":"...","cdu_wirkung":"...","relevanz":"...","handlungsbedarf":false,"zusammenfassung":"..."}]`
 
-export async function analyzeUnprocessedArticles() {
-  const { data: articles, error: fetchError } = await supabase
+export async function analyzeUnprocessedArticles(ids = null) {
+  let query = supabase
     .from('artikel')
     .select('id, titel, rohtext, quelle')
     .eq('analysiert', false)
-    .limit(15)
+    .limit(20)
 
+  if (ids?.length) {
+    query = supabase
+      .from('artikel')
+      .select('id, titel, rohtext, quelle')
+      .in('id', ids)
+  }
+
+  const { data: articles, error: fetchError } = await query
   if (fetchError) throw new Error(`Supabase fetch: ${fetchError.message}`)
   if (!articles?.length) return 0
 

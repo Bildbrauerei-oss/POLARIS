@@ -49,20 +49,29 @@ export async function runFeedSync(force = false) {
     await deleteOldArticles()
 
     log.push('Claude-Analyse wird gestartet…')
+    // Alle unanalysierten IDs holen, in 4 Partitionen aufteilen, parallel analysieren
+    const { data: unanalyzed } = await supabase
+      .from('artikel').select('id').eq('analysiert', false).limit(400)
+    const allIds = (unanalyzed || []).map(a => a.id)
     let totalAnalyzed = 0
-    let batch = 0
-    while (batch < 10) {
-      try {
-        const n = await analyzeUnprocessedArticles()
-        totalAnalyzed += n
-        if (n === 0) break
-        batch++
-      } catch (e) {
-        errors.push(`Analyse Batch ${batch + 1}: ${e.message}`)
-        break
+    if (allIds.length > 0) {
+      // In Gruppen à 20 aufteilen, dann 4 Gruppen gleichzeitig → ~4× schneller
+      const chunkSize = 20
+      const chunks = []
+      for (let i = 0; i < allIds.length; i += chunkSize) chunks.push(allIds.slice(i, i + chunkSize))
+      const parallelSize = 4
+      for (let i = 0; i < chunks.length; i += parallelSize) {
+        const batch = chunks.slice(i, i + parallelSize)
+        try {
+          const results = await Promise.all(batch.map(ids => analyzeUnprocessedArticles(ids)))
+          totalAnalyzed += results.reduce((s, r) => s + r, 0)
+        } catch (e) {
+          errors.push(`Analyse Runde ${Math.floor(i / parallelSize) + 1}: ${e.message}`)
+          break
+        }
       }
     }
-    log.push(`${totalAnalyzed} politische Artikel analysiert.`)
+    log.push(`${totalAnalyzed} politische Artikel analysiert (von ${allIds.length} unanalysiert).`)
 
     localStorage.setItem(CACHE_KEY, Date.now().toString())
     log.push('Sync abgeschlossen.')
