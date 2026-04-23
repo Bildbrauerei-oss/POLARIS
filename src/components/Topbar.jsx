@@ -146,7 +146,7 @@ export default function Topbar({ onLogout }) {
         </button>
 
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+        <NavLink to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, textDecoration: 'none' }}>
           <div style={{ width: 26, height: 26, background: 'rgba(255,255,255,0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
               <circle cx="7" cy="7" r="2.5" fill="white"/>
@@ -154,7 +154,7 @@ export default function Topbar({ onLogout }) {
             </svg>
           </div>
           <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1rem', color: '#fff', letterSpacing: '0.04em' }}>POLARIS</span>
-        </div>
+        </NavLink>
 
         {/* Desktop nav */}
         <nav className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', flex: 1 }}>
