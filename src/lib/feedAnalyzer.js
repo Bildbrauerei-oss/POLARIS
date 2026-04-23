@@ -17,65 +17,74 @@ Für jeden Artikel bestimme:
 Antworte NUR als JSON-Array: [{"id":"...","ist_politisch":true,"sentiment":"...","cdu_wirkung":"...","relevanz":"...","handlungsbedarf":false,"zusammenfassung":"..."}]`
 
 export async function analyzeUnprocessedArticles() {
-  const { data: articles, error } = await supabase
+  const { data: articles, error: fetchError } = await supabase
     .from('artikel')
     .select('id, titel, rohtext, quelle')
     .eq('analysiert', false)
-    .limit(25)
+    .limit(15)
 
-  if (error || !articles?.length) return 0
+  if (fetchError) throw new Error(`Supabase fetch: ${fetchError.message}`)
+  if (!articles?.length) return 0
 
   const input = articles.map(a =>
     `ID:${a.id} TITEL:${a.titel} TEXT:${(a.rohtext || '').slice(0, 300)}`
   ).join('\n---\n')
 
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: input }],
+    }),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(`Claude API ${res.status}: ${errText.slice(0, 200)}`)
+  }
+
+  const data = await res.json()
+  const text = data.content?.[0]?.text
+  if (!text) throw new Error('Claude: leere Antwort')
+
+  const match = text.match(/\[[\s\S]*\]/)
+  if (!match) throw new Error(`Claude: kein JSON gefunden. Antwort: ${text.slice(0, 100)}`)
+
+  let analyses
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: input }],
-      }),
-    })
+    analyses = JSON.parse(match[0])
+  } catch (e) {
+    throw new Error(`JSON parse fehler: ${e.message}`)
+  }
 
-    if (!res.ok) return 0
-    const data = await res.json()
-    const text = data.content[0].text
+  // Nicht-politische Artikel löschen
+  const nonPolitical = analyses.filter(a => !a.ist_politisch).map(a => a.id)
+  if (nonPolitical.length > 0) {
+    await supabase.from('artikel').delete().in('id', nonPolitical)
+  }
 
-    let analyses
-    try {
-      const match = text.match(/\[[\s\S]*\]/)
-      analyses = JSON.parse(match ? match[0] : text)
-    } catch { return 0 }
+  // Politische Artikel speichern
+  const political = analyses.filter(a => a.ist_politisch)
+  for (const a of political) {
+    const { error: updateError } = await supabase.from('artikel').update({
+      ist_politisch: true,
+      sentiment: a.sentiment,
+      cdu_wirkung: a.cdu_wirkung,
+      relevanz: a.relevanz,
+      handlungsbedarf: a.handlungsbedarf === 'ja' || a.handlungsbedarf === true,
+      zusammenfassung: a.zusammenfassung,
+      analysiert: true,
+    }).eq('id', a.id)
+    if (updateError) throw new Error(`Update fehler: ${updateError.message}`)
+  }
 
-    // Nicht-politische Artikel aus DB löschen
-    const nonPolitical = analyses.filter(a => !a.ist_politisch).map(a => a.id)
-    if (nonPolitical.length > 0) {
-      await supabase.from('artikel').delete().in('id', nonPolitical)
-    }
-
-    // Politische Artikel speichern
-    const political = analyses.filter(a => a.ist_politisch)
-    for (const a of political) {
-      await supabase.from('artikel').update({
-        ist_politisch: true,
-        sentiment: a.sentiment,
-        cdu_wirkung: a.cdu_wirkung,
-        relevanz: a.relevanz,
-        handlungsbedarf: a.handlungsbedarf === 'ja' || a.handlungsbedarf === true,
-        zusammenfassung: a.zusammenfassung,
-        analysiert: true,
-      }).eq('id', a.id)
-    }
-
-    return political.length
-  } catch { return 0 }
+  return political.length
 }

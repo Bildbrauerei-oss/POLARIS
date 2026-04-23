@@ -51,10 +51,15 @@ export async function runFeedSync(force = false) {
     let totalAnalyzed = 0
     let batch = 0
     while (batch < 10) {
-      const n = await analyzeUnprocessedArticles()
-      totalAnalyzed += n
-      if (n === 0) break
-      batch++
+      try {
+        const n = await analyzeUnprocessedArticles()
+        totalAnalyzed += n
+        if (n === 0) break
+        batch++
+      } catch (e) {
+        errors.push(`Analyse Batch ${batch + 1}: ${e.message}`)
+        break
+      }
     }
     log.push(`${totalAnalyzed} politische Artikel analysiert.`)
 
