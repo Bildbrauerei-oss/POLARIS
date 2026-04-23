@@ -21,7 +21,7 @@ export async function analyzeUnprocessedArticles() {
     .from('artikel')
     .select('id, titel, rohtext, quelle')
     .eq('analysiert', false)
-    .limit(20)
+    .limit(25)
 
   if (error || !articles?.length) return 0
 

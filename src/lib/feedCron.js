@@ -48,8 +48,15 @@ export async function runFeedSync(force = false) {
     await deleteOldArticles()
 
     log.push('Claude-Analyse wird gestartet…')
-    const analyzed = await analyzeUnprocessedArticles()
-    log.push(`${analyzed} politische Artikel analysiert.`)
+    let totalAnalyzed = 0
+    let batch = 0
+    while (batch < 10) {
+      const n = await analyzeUnprocessedArticles()
+      totalAnalyzed += n
+      if (n === 0) break
+      batch++
+    }
+    log.push(`${totalAnalyzed} politische Artikel analysiert.`)
 
     localStorage.setItem(CACHE_KEY, Date.now().toString())
     log.push('Sync abgeschlossen.')
