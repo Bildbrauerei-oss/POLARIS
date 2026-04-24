@@ -74,6 +74,7 @@ export async function runFeedSync(force = false) {
     log.push(`${totalAnalyzed} politische Artikel analysiert (von ${allIds.length} unanalysiert).`)
 
     localStorage.setItem(CACHE_KEY, Date.now().toString())
+    window.dispatchEvent(new CustomEvent('polaris-sync-complete'))
     log.push('Sync abgeschlossen.')
 
     return { success: true, log, errors }
