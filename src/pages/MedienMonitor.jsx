@@ -26,11 +26,15 @@ const DEFAULT_VIPS = [
 function loadVips() {
   try {
     const stored = localStorage.getItem(VIP_STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-    // Erste Verwendung: Standardliste vorbelegen
+    const saved = stored ? JSON.parse(stored) : []
+    // Immer mit DEFAULT_VIPS mergen — neue Namen kommen automatisch dazu
+    const merged = [...new Set([...DEFAULT_VIPS, ...saved])]
+    localStorage.setItem(VIP_STORAGE_KEY, JSON.stringify(merged))
+    return merged
+  } catch {
     localStorage.setItem(VIP_STORAGE_KEY, JSON.stringify(DEFAULT_VIPS))
     return DEFAULT_VIPS
-  } catch { return DEFAULT_VIPS }
+  }
 }
 
 function saveVips(vips) {
