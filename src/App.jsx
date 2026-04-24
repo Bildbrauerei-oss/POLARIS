@@ -5,12 +5,24 @@ import Layout from './components/Layout'
 import SplashScreen from './components/SplashScreen'
 import CommandCenter from './pages/CommandCenter'
 import MedienMonitor from './pages/MedienMonitor'
+import OppositionMonitoring from './pages/OppositionMonitoring'
+import UmfrageRadar from './pages/UmfrageRadar'
+import StimmungsKompass from './pages/StimmungsKompass'
+import ThemenCockpit from './pages/ThemenCockpit'
+import SocialMediaFabrik from './pages/SocialMediaFabrik'
+import WahlrechtAssistent from './pages/WahlrechtAssistent'
 import ModulePage from './pages/ModulePage'
 import NotFound from './pages/NotFound'
 import { ALL_MODULES } from './nav'
 
 const CUSTOM_PAGES = {
   '/medien-monitor': MedienMonitor,
+  '/gegner-analyse': OppositionMonitoring,
+  '/umfrage-radar': UmfrageRadar,
+  '/stimmungskompass': StimmungsKompass,
+  '/themen-cockpit': ThemenCockpit,
+  '/social-media-fabrik': SocialMediaFabrik,
+  '/wahlrecht-assistent': WahlrechtAssistent,
 }
 
 export default function App() {
