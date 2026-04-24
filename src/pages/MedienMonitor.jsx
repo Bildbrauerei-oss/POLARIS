@@ -123,7 +123,7 @@ function ArticleCard({ a, i, showFullDate = false }) {
           {/* Meta */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.625rem', color: '#52b7c1', fontWeight: 600 }}>{a.quelle}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.625rem', color: 'rgba(255,255,255,0.2)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.625rem', color: showFullDate ? '#ffa600' : 'rgba(255,255,255,0.4)' }}>
               <Clock size={9} />{formatDate(a.datum, showFullDate)}
             </span>
             {a.suchbegriff && (
