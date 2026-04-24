@@ -407,7 +407,7 @@ export default function MedienMonitor() {
   const { articles, loading, count, refetch } = useArticles({
     monitoringListe: selectedListe || undefined,
     search: vipMode ? undefined : (searchText || undefined),
-    limit: 800,
+    limit: 500,
   })
 
   const filteredVipNews = searchText
