@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
-import { supabase } from '../lib/supabase'
 import { NAV_GROUPS } from '../nav'
 import { GROUP_COLORS, isUrgent } from '../lib/utils'
 import {

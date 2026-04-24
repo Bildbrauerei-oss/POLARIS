@@ -39,12 +39,11 @@ function formatTimeAgo(d) {
   return `vor ${Math.round(m / 1440)} Tagen`
 }
 
-const hour = new Date().getHours()
-const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend'
-
 export default function MorningBriefingModal({ onClose }) {
-  const today = new Date()
-  const todayStr = today.toDateString()
+  const now = new Date()
+  const hour = now.getHours()
+  const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend'
+  const todayStr = now.toDateString()
   const lastShown = localStorage.getItem('polaris_briefing_date')
   const shouldShow = lastShown !== todayStr
 

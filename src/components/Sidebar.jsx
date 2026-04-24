@@ -2,11 +2,7 @@ import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { NAV_GROUPS } from '../nav'
-
-const GROUP_COLORS = {
-  hauptbereich: '#CC0000', intelligence: '#A855F7', kampagne: '#F59E0B',
-  content: '#3B82F6', team: '#22C55E', wissen: '#F97316', admin: '#8BAFC9',
-}
+import { GROUP_COLORS } from '../lib/utils'
 
 const INIT = Object.fromEntries(NAV_GROUPS.map(g => [g.id, true]))
 

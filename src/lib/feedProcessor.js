@@ -56,7 +56,7 @@ export async function deleteOldArticles() {
   const cutoff = new Date(Date.now() - SEVEN_DAYS)
   await supabase.from('artikel').delete().lt('datum', cutoff.toISOString())
 
-  // Auf max. 150 Artikel trimmen — älteste zuerst löschen
+  // Auf max. 800 Artikel trimmen — älteste zuerst löschen
   const { data: all } = await supabase
     .from('artikel')
     .select('id')
