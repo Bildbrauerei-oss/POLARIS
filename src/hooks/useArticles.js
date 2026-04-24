@@ -27,8 +27,9 @@ export function useArticles({ kategorie, sentiment, cduWirkung, handlungsbedarf,
   useEffect(() => { fetch() }, [fetch])
 
   useEffect(() => {
-    window.addEventListener('polaris-sync-complete', fetch)
-    return () => window.removeEventListener('polaris-sync-complete', fetch)
+    const handler = () => fetch()
+    window.addEventListener('polaris-sync-complete', handler)
+    return () => window.removeEventListener('polaris-sync-complete', handler)
   }, [fetch])
 
   return { articles, loading, count, refetch: fetch }

@@ -62,12 +62,10 @@ export async function runFeedSync(force = false) {
       const parallelSize = 4
       for (let i = 0; i < chunks.length; i += parallelSize) {
         const batch = chunks.slice(i, i + parallelSize)
-        try {
-          const results = await Promise.all(batch.map(ids => analyzeUnprocessedArticles(ids)))
-          totalAnalyzed += results.reduce((s, r) => s + r, 0)
-        } catch (e) {
-          errors.push(`Analyse Runde ${Math.floor(i / parallelSize) + 1}: ${e.message}`)
-          break
+        const results = await Promise.allSettled(batch.map(ids => analyzeUnprocessedArticles(ids)))
+        for (const r of results) {
+          if (r.status === 'fulfilled') totalAnalyzed += r.value
+          else errors.push(`Analyse Fehler: ${r.reason?.message || r.reason}`)
         }
       }
     }

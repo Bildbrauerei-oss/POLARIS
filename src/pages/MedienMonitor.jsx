@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { supabase } from '../lib/supabase'
+import { isUrgent } from '../lib/utils'
 import {
   Newspaper, RefreshCw, ExternalLink, AlertTriangle, Clock,
   User, Plus, X, ChevronDown, ChevronUp, Star, Search
@@ -64,7 +65,7 @@ function formatDate(d, full = false) {
 function ArticleCard({ a, i, showFullDate = false }) {
   const ss = sentimentStyle(a.sentiment)
   const cw = cduWirkungStyle(a.cdu_wirkung)
-  const isUrgent = a.handlungsbedarf && a.sentiment === 'negativ'
+  const urgent = isUrgent(a)
 
   return (
     <motion.div
@@ -73,20 +74,20 @@ function ArticleCard({ a, i, showFullDate = false }) {
       transition={{ delay: Math.min(i * 0.015, 0.25) }}
       onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
       style={{
-        background: isUrgent ? 'rgba(191,17,27,0.05)' : '#162230',
-        border: `1px solid ${isUrgent ? 'rgba(191,17,27,0.25)' : 'rgba(82,183,193,0.08)'}`,
-        borderLeft: `3px solid ${isUrgent ? '#bf111b' : a.cdu_wirkung === 'positiv' ? '#52b7c1' : a.cdu_wirkung === 'negativ' ? '#bf111b' : 'rgba(255,255,255,0.08)'}`,
+        background: urgent ? 'rgba(191,17,27,0.05)' : '#162230',
+        border: `1px solid ${urgent ? 'rgba(191,17,27,0.25)' : 'rgba(82,183,193,0.08)'}`,
+        borderLeft: `3px solid ${urgent ? '#bf111b' : a.cdu_wirkung === 'positiv' ? '#52b7c1' : a.cdu_wirkung === 'negativ' ? '#bf111b' : 'rgba(255,255,255,0.08)'}`,
         borderRadius: 10, padding: '0.875rem 1rem',
         cursor: a.url ? 'pointer' : 'default',
         transition: 'background 0.15s',
       }}
-      whileHover={{ background: isUrgent ? 'rgba(191,17,27,0.08)' : 'rgba(82,183,193,0.03)' }}
+      whileHover={{ background: urgent ? 'rgba(191,17,27,0.08)' : 'rgba(82,183,193,0.03)' }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Badges */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.375rem', flexWrap: 'wrap' }}>
-            {isUrgent && (
+            {urgent && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.5rem', fontWeight: 800, padding: '0.15rem 0.45rem', borderRadius: 4, background: 'rgba(191,17,27,0.15)', color: '#ff6b6b', border: '1px solid rgba(191,17,27,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 <AlertTriangle size={8} /> Dringend
               </span>
@@ -101,7 +102,7 @@ function ArticleCard({ a, i, showFullDate = false }) {
                 {cw.label}
               </span>
             )}
-            {a.handlungsbedarf && !isUrgent && (
+            {a.handlungsbedarf && !urgent && (
               <span style={{ fontSize: '0.5rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: 4, background: 'rgba(255,166,0,0.08)', color: '#ffa600', border: '1px solid rgba(255,166,0,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 ⚡ Handlungsbedarf
               </span>
@@ -422,7 +423,7 @@ export default function MedienMonitor() {
     setSyncLog(result); setSyncing(false); refetch()
   }
 
-  const urgent = articles.filter(a => a.handlungsbedarf)
+  const urgentArticles = articles.filter(a => isUrgent(a))
   const todayCount = articles.filter(a => a.datum && new Date(a.datum).toDateString() === new Date().toDateString()).length
 
   const activeFilter = vipMode
@@ -464,7 +465,7 @@ export default function MedienMonitor() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'Artikel gesamt', value: count, color: '#52b7c1' },
-          { label: 'Dringend', value: urgent.length, color: '#bf111b' },
+          { label: 'Dringend', value: urgentArticles.length, color: '#bf111b' },
           { label: 'Heute', value: todayCount, color: '#ffa600' },
           { label: 'CDU negativ', value: articles.filter(a => a.cdu_wirkung === 'negativ').length, color: '#A855F7' },
         ].map(s => (
@@ -515,11 +516,11 @@ export default function MedienMonitor() {
           </div>
 
           {/* Urgent banner */}
-          {urgent.length > 0 && (
+          {urgentArticles.length > 0 && (
             <div style={{ background: 'rgba(191,17,27,0.06)', border: '1px solid rgba(191,17,27,0.25)', borderRadius: 8, padding: '0.625rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
               <AlertTriangle size={14} color="#bf111b" />
               <span style={{ fontSize: '0.8125rem', color: '#ff9999', fontWeight: 600 }}>
-                {urgent.length} Artikel mit Handlungsbedarf
+                {urgentArticles.length} Artikel mit Handlungsbedarf
               </span>
             </div>
           )}

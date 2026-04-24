@@ -47,6 +47,7 @@ export async function analyzeUnprocessedArticles(ids = null) {
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    signal: AbortSignal.timeout(30000),
     headers: {
       'x-api-key': CLAUDE_API_KEY,
       'anthropic-version': '2023-06-01',

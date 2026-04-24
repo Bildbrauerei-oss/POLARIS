@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useArticles } from '../hooks/useArticles'
 import { runFeedSync } from '../lib/feedCron'
+import { isUrgent } from '../lib/utils'
 import PageHeader from '../components/ui/PageHeader'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { Sun, Zap, RefreshCw, ExternalLink, Clock } from 'lucide-react'
@@ -58,7 +59,7 @@ export default function Morgenbriefing() {
 
   const { articles, loading } = useArticles({ limit: 50 })
   const todayArticles = articles.filter(a => a.datum && new Date(a.datum) >= todayStart)
-  const urgentArticles = articles.filter(a => a.handlungsbedarf && a.sentiment === 'negativ').slice(0, 5)
+  const urgentArticles = articles.filter(a => isUrgent(a)).slice(0, 5)
 
   async function handleSync() {
     setSyncing(true)

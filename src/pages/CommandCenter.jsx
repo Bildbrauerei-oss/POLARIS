@@ -5,17 +5,13 @@ import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { supabase } from '../lib/supabase'
 import { NAV_GROUPS } from '../nav'
+import { GROUP_COLORS, isUrgent } from '../lib/utils'
 import {
   RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
   TrendingUp, TrendingDown, Send,
   ArrowUpRight, AlertTriangle
 } from 'lucide-react'
-
-const GROUP_COLORS = {
-  hauptbereich: '#52b7c1', intelligence: '#A855F7', kampagne: '#ffa600',
-  content: '#3B82F6', team: '#22C55E', wissen: '#F97316', admin: '#8BAFC9',
-}
 const QUICKLINKS = [
   { path: '/umfrage-radar',       label: 'Umfrage-Radar',       icon: BarChart2,  color: '#52b7c1' },
   { path: '/medien-monitor',      label: 'Medien-Monitor',      icon: Newspaper,  color: '#3B82F6' },
@@ -89,7 +85,7 @@ function SentimentDot({ s }) {
 }
 
 function FeedItem({ a, index }) {
-  const urgent = a.handlungsbedarf
+  const urgent = isUrgent(a)
   const ago = a.datum ? (() => {
     const m = (Date.now() - new Date(a.datum)) / 60000
     return m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}T`
@@ -315,7 +311,7 @@ export default function CommandCenter() {
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState(null)
   const { articles, loading, refetch } = useArticles({ limit: 60 })
-  const urgent = articles.filter(a => a.handlungsbedarf)
+  const urgent = articles.filter(a => isUrgent(a))
   const todayCount = articles.filter(a => a.datum && new Date(a.datum).toDateString() === new Date().toDateString()).length
 
   async function handleSync() {
@@ -326,7 +322,10 @@ export default function CommandCenter() {
     setTimeout(() => setSyncMsg(null), 4000)
   }
 
-  const sortedFeed = [...urgent, ...articles.filter(a => !(a.handlungsbedarf && a.sentiment === 'negativ'))].slice(0, 20)
+  const sortedFeed = [
+    ...articles.filter(a => isUrgent(a)),
+    ...articles.filter(a => !isUrgent(a)),
+  ].slice(0, 20)
 
   return (
     <div style={{ width: '100%' }}>

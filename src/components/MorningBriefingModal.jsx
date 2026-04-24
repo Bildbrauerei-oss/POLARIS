@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronRight, Star, Calendar, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useArticles } from '../hooks/useArticles'
+import { isUrgent } from '../lib/utils'
 
 function SentimentBadge({ s }) {
   const map = {
@@ -48,7 +49,7 @@ export default function MorningBriefingModal({ onClose }) {
   const shouldShow = lastShown !== todayStr
 
   const { articles, loading } = useArticles({ limit: 5 })
-  const urgent = articles.filter(a => a.handlungsbedarf && a.sentiment === 'negativ')
+  const urgent = articles.filter(a => isUrgent(a))
   const top5 = articles.slice(0, 5)
 
   useEffect(() => {
