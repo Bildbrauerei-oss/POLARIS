@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Megaphone, Send, Copy, RefreshCw, Check, Clock, ChevronRight } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
 
 const CAPTION_HISTORY_KEY = 'polaris_caption_history'
 function loadCaptionHistory() { try { return JSON.parse(localStorage.getItem(CAPTION_HISTORY_KEY)) || [] } catch { return [] } }
@@ -26,10 +27,11 @@ const TONE = [
 ]
 
 export default function SocialMediaFabrik() {
+  const { aktiveKampagne } = useKampagne()
   const [plattform, setPlattform] = useState('instagram')
   const [tone, setTone] = useState('souveraen')
-  const [kandidat, setKandidat] = useState('Jürgen Roth')
-  const [ort, setOrt] = useState('Villingen-Schwenningen')
+  const [kandidat, setKandidat] = useState(() => aktiveKampagne?.kandidat || '')
+  const [ort, setOrt] = useState(() => aktiveKampagne?.ort || '')
   const [thema, setThema] = useState('')
   const [kontext, setKontext] = useState('')
   const [ergebnis, setErgebnis] = useState('')
@@ -38,6 +40,8 @@ export default function SocialMediaFabrik() {
   const [captionHistory, setCaptionHistory] = useState(loadCaptionHistory)
   const [showHistory, setShowHistory] = useState(false)
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+  useEffect(() => { if (aktiveKampagne) { setKandidat(aktiveKampagne.kandidat); setOrt(aktiveKampagne.ort) } }, [aktiveKampagne?.id])
 
   const plattformInfo = PLATTFORMEN.find(p => p.id === plattform)
   const toneInfo = TONE.find(t => t.id === tone)

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import KampagneProvider from './components/KampagneProvider'
 import Login from './pages/Login'
 import Layout from './components/Layout'
 import SplashScreen from './components/SplashScreen'
@@ -61,7 +62,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <KampagneProvider>
       {/* Splash renders as overlay ON TOP of everything */}
       {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
 
@@ -79,6 +80,6 @@ export default function App() {
           <Route path="*" element={authed ? <NotFound /> : <Navigate to="/login" />} />
         </Routes>
       </BrowserRouter>
-    </>
+    </KampagneProvider>
   )
 }

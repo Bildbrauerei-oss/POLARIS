@@ -1,7 +1,140 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Search, LogOut, X, Menu, ChevronRight } from 'lucide-react'
+import { Search, LogOut, X, Menu, ChevronRight, ChevronDown, Plus, Check, Calendar } from 'lucide-react'
 import { ALL_MODULES, NAV_GROUPS } from '../nav'
+import { useKampagne } from '../lib/kampagneContext'
+import { tageUntilWahl, formatWahldatum } from '../lib/kampagneContext'
+
+const WAHLTYPEN = ['OB-Wahl', 'Bürgermeisterwahl', 'Landtagswahl', 'Kommunalwahl', 'Bundestagswahl']
+const BUNDESLAENDER = ['Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen', 'Hamburg', 'Hessen', 'Mecklenburg-Vorpommern', 'Niedersachsen', 'Nordrhein-Westfalen', 'Rheinland-Pfalz', 'Saarland', 'Sachsen', 'Sachsen-Anhalt', 'Schleswig-Holstein', 'Thüringen']
+
+function KampagneSwitcher() {
+  const { kampagnen, aktiveKampagne, aktiveId, switchKampagne, addKampagne, deleteKampagne } = useKampagne()
+  const [open, setOpen] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const ref = useRef(null)
+  const [form, setForm] = useState({ kandidat: '', ort: '', bundesland: 'Baden-Württemberg', wahltyp: 'OB-Wahl', wahldatum: '', partei: '' })
+
+  useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setShowForm(false) } }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const tage = tageUntilWahl(aktiveKampagne?.wahldatum)
+
+  function submit(e) {
+    e.preventDefault()
+    if (!form.kandidat.trim() || !form.ort.trim()) return
+    addKampagne(form)
+    setForm({ kandidat: '', ort: '', bundesland: 'Baden-Württemberg', wahltyp: 'OB-Wahl', wahldatum: '', partei: '' })
+    setShowForm(false)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button onClick={() => { setOpen(o => !o); setShowForm(false) }}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.625rem', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 8, cursor: 'pointer', color: '#fff', fontFamily: 'inherit', transition: 'background 0.15s', maxWidth: 220 }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>{aktiveKampagne?.kandidat}</div>
+          <div style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap' }}>{aktiveKampagne?.ort} · {aktiveKampagne?.wahltyp}</div>
+        </div>
+        {tage !== null && tage > 0 && (
+          <span style={{ flexShrink: 0, fontSize: '0.5rem', fontWeight: 800, background: tage <= 30 ? '#ef4444' : tage <= 90 ? '#ffa600' : 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: 5, padding: '0.1rem 0.35rem', whiteSpace: 'nowrap' }}>
+            {tage}T
+          </span>
+        )}
+        <ChevronDown size={11} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 300, background: '#0f1923', border: '1px solid rgba(82,183,193,0.25)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,0.5)', zIndex: 500, overflow: 'hidden' }}>
+          {/* Kampagnen Liste */}
+          <div style={{ padding: '0.5rem 0' }}>
+            {kampagnen.map(k => {
+              const t = tageUntilWahl(k.wahldatum)
+              const isActive = k.id === aktiveId
+              return (
+                <div key={k.id} onClick={() => { switchKampagne(k.id); setOpen(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.625rem 1rem', cursor: 'pointer', background: isActive ? 'rgba(82,183,193,0.1)' : 'transparent', transition: 'background 0.1s' }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <span style={{ fontSize: '0.8125rem', fontWeight: isActive ? 700 : 500, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.kandidat}</span>
+                      {isActive && <Check size={11} color="#52b7c1" style={{ flexShrink: 0 }} />}
+                    </div>
+                    <div style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.45)', marginTop: '0.1rem' }}>
+                      {k.ort} · {k.wahltyp} {k.wahldatum ? `· ${formatWahldatum(k.wahldatum)}` : ''}
+                    </div>
+                  </div>
+                  {t !== null && t > 0 && (
+                    <span style={{ flexShrink: 0, fontSize: '0.5rem', fontWeight: 800, background: t <= 30 ? 'rgba(239,68,68,0.2)' : t <= 90 ? 'rgba(255,166,0,0.2)' : 'rgba(82,183,193,0.15)', color: t <= 30 ? '#ef4444' : t <= 90 ? '#ffa600' : '#52b7c1', border: `1px solid ${t <= 30 ? 'rgba(239,68,68,0.3)' : t <= 90 ? 'rgba(255,166,0,0.3)' : 'rgba(82,183,193,0.25)'}`, borderRadius: 5, padding: '0.15rem 0.4rem' }}>
+                      {t} Tage
+                    </span>
+                  )}
+                  {kampagnen.length > 1 && (
+                    <button onClick={e => { e.stopPropagation(); deleteKampagne(k.id) }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.2)', padding: 2, flexShrink: 0, display: 'flex' }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}>
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Neue Kampagne */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            {!showForm ? (
+              <button onClick={() => setShowForm(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#52b7c1', fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.1s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(82,183,193,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                <Plus size={13} /> Neue Kampagne anlegen
+              </button>
+            ) : (
+              <form onSubmit={submit} style={{ padding: '0.875rem 1rem' }}>
+                <div style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.12em', color: '#52b7c1', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Neue Kampagne</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input required value={form.kandidat} onChange={e => setForm(f => ({ ...f, kandidat: e.target.value }))} placeholder="Kandidat*" style={fStyle} />
+                  <input required value={form.ort} onChange={e => setForm(f => ({ ...f, ort: e.target.value }))} placeholder="Ort / Gemeinde*" style={fStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <select value={form.wahltyp} onChange={e => setForm(f => ({ ...f, wahltyp: e.target.value }))} style={fStyle}>
+                    {WAHLTYPEN.map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                  <input value={form.partei} onChange={e => setForm(f => ({ ...f, partei: e.target.value }))} placeholder="Partei / Unterstützung" style={fStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <select value={form.bundesland} onChange={e => setForm(f => ({ ...f, bundesland: e.target.value }))} style={fStyle}>
+                    {BUNDESLAENDER.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                  <input type="date" value={form.wahldatum} onChange={e => setForm(f => ({ ...f, wahldatum: e.target.value }))} style={fStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button type="submit" style={{ flex: 1, padding: '0.5rem', background: 'rgba(82,183,193,0.15)', border: '1px solid rgba(82,183,193,0.4)', borderRadius: 7, color: '#52b7c1', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Anlegen
+                  </button>
+                  <button type="button" onClick={() => setShowForm(false)} style={{ padding: '0.5rem 0.75rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: 'rgba(255,255,255,0.5)', fontSize: '0.8125rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Abbruch
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const fStyle = { width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '0.4rem 0.625rem', color: '#fff', fontSize: '0.75rem', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
 
 function GlobalSearch({ onClose }) {
   const [q, setQ] = useState('')
@@ -156,6 +289,11 @@ export default function Topbar({ onLogout }) {
           <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1rem', color: '#fff', letterSpacing: '0.04em' }}>POLARIS</span>
         </NavLink>
 
+        {/* Kampagnen-Switcher */}
+        <div className="kampagne-switcher">
+          <KampagneSwitcher />
+        </div>
+
         {/* Desktop nav */}
         <nav className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: '0.125rem', flex: 1 }}>
           {NAV_ITEMS.map(item => (
@@ -197,6 +335,7 @@ export default function Topbar({ onLogout }) {
           .mobile-menu-btn { display: flex !important; }
           .search-label { display: none; }
           .search-kbd { display: none; }
+          .kampagne-switcher { display: none; }
         }
       `}</style>
     </>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun, Mail, Send, Settings, Plus, X, RefreshCw,
@@ -6,6 +6,7 @@ import {
   Zap, Shield, Target, Users, ChevronRight, User, Rss, Check, AlertCircle
 } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
 
 const CLAUDE_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 const CONFIG_KEY = 'polaris_briefing_config'
@@ -14,14 +15,12 @@ const BRIEFING_KEY = 'polaris_briefing_v2'
 const DEFAULT_CONFIG = {
   recipients: [
     { id: '1', name: 'Jan Schlegel', email: 'jan@bildbrauerei.de' },
-    { id: '2', name: 'Chef', email: '' },
   ],
-  politicians: ['Jürgen Roth', 'Friedrich Merz', 'Manuel Hagel', 'Markus Söder', 'Olaf Scholz'],
+  politicians: ['Friedrich Merz', 'Manuel Hagel', 'Markus Söder', 'Olaf Scholz'],
   feeds: [
     { id: '1', label: 'CDU Bundespartei', url: 'https://news.google.com/rss/search?q=CDU&hl=de&gl=DE&ceid=DE:de' },
     { id: '2', label: 'BW Politik', url: 'https://news.google.com/rss/search?q=Baden-Württemberg+Politik&hl=de&gl=DE&ceid=DE:de' },
-    { id: '3', label: 'Kommunalpolitik VS', url: 'https://news.google.com/rss/search?q=Villingen-Schwenningen+Roth&hl=de&gl=DE&ceid=DE:de' },
-    { id: '4', label: 'Merz & Bundesregierung', url: 'https://news.google.com/rss/search?q=Merz+Bundesregierung&hl=de&gl=DE&ceid=DE:de' },
+    { id: '3', label: 'Merz & Bundesregierung', url: 'https://news.google.com/rss/search?q=Merz+Bundesregierung&hl=de&gl=DE&ceid=DE:de' },
   ],
 }
 
@@ -317,6 +316,7 @@ function ConfigPanel({ config, onUpdate, onClose }) {
 // ---- Hauptkomponente ----
 
 export default function Morgenbriefing() {
+  const { aktiveKampagne } = useKampagne()
   const [config, setConfig] = useState(loadConfig)
   const [briefing, setBriefing] = useState(loadBriefing)
   const [articles, setArticles] = useState([])
@@ -381,7 +381,8 @@ export default function Morgenbriefing() {
       const tageszeit = hour < 5 ? 'nachts' : hour < 11 ? 'morgens' : hour < 14 ? 'mittags' : hour < 18 ? 'nachmittags' : 'abends'
       const wochentag = new Date().toLocaleDateString('de-DE', { weekday: 'long' })
 
-      const prompt = `Du schreibst das POLARIS Morgenbriefing für Jan Schlegel, Head of Politik bei bildbrauerei Heidelberg. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen ("in der heutigen schnelllebigen Welt", "es ist wichtig zu beachten"). Keine Einleitung, sofort zum Punkt.
+      const kampagneInfo = aktiveKampagne ? `Aktive Kampagne: ${aktiveKampagne.kandidat}, ${aktiveKampagne.wahltyp} ${aktiveKampagne.ort} (${aktiveKampagne.partei}).` : ''
+      const prompt = `Du schreibst das POLARIS Morgenbriefing für bildbrauerei, eine politische Kampagnenagentur. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen. Keine Einleitung, sofort zum Punkt. ${kampagneInfo}
 
 HEUTE: ${wochentag}, ${today}. Aktuell ist es ${time} Uhr (${tageszeit}).
 

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { Scale, Send, RefreshCw } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
+import { formatWahldatum } from '../lib/kampagneContext'
 
 const FRAGEN = [
   'Welche Fristen gelten für die Kandidaturanmeldung?',
@@ -13,28 +15,38 @@ const FRAGEN = [
   'Welche Ausgaben müssen im Rechenschaftsbericht erscheinen?',
 ]
 
-const SYSTEM = `Du bist RECHT, der Wahlrecht-Assistent von POLARIS. Du bist Experte für deutsches Kommunalwahlrecht, insbesondere Baden-Württemberg.
+function buildSystem(kampagne) {
+  const bl = kampagne?.bundesland || 'Deutschland'
+  const gesetze = bl === 'Baden-Württemberg' ? 'KomWG BW, GemO BW' : bl === 'Bayern' ? 'GLKrWG Bayern, GO Bayern' : bl === 'Nordrhein-Westfalen' ? 'KWahlG NRW, GO NRW' : 'jeweiliges Landeswahlgesetz'
+  return `Du bist RECHT, der Wahlrecht-Assistent von POLARIS. Du bist Experte für deutsches Kommunal- und Landeswahlrecht.
 
-Kontext: Jürgen Roth kandidiert bei der OB-Wahl Villingen-Schwenningen, September 2026, parteilos mit CDU-Unterstützung.
+Aktive Kampagne: ${kampagne?.kandidat || 'unbekannt'} kandidiert bei der ${kampagne?.wahltyp || 'Wahl'} in ${kampagne?.ort || 'unbekannt'} (${kampagne?.bundesland || ''})${kampagne?.wahldatum ? ', Wahldatum: ' + formatWahldatum(kampagne.wahldatum) : ''}. Partei/Unterstützung: ${kampagne?.partei || 'keine Angabe'}.
 
 Deine Aufgaben:
 - Beantworte Fragen zu Wahlrecht, Kandidaturvoraussetzungen, Fristen, Wahlkampfrecht, Finanzierung
-- Verweise auf relevante Gesetze (KomWG BW, GemO BW, BWahlG wo relevant)
+- Verweise auf relevante Gesetze (${gesetze}, BWahlG wo relevant)
 - Sei präzise und praktisch nutzbar
 - Bei komplexen Fragen: Punkte-Liste, klar strukturiert
 - Hinweis bei Unsicherheit: Rechtsberatung empfehlen
 - Sprache: Deutsch, professionell aber verständlich
 - Keine allgemeinen Einleitungen — sofort zum Punkt`
+}
 
 export default function WahlrechtAssistent() {
-  const [messages, setMessages] = useState([{
+  const { aktiveKampagne } = useKampagne()
+  const [messages, setMessages] = useState(() => [{
     role: 'assistant',
-    text: 'Guten Tag. Ich bin dein Wahlrecht-Assistent für die OB-Wahl Villingen-Schwenningen. Welche rechtliche Frage hast du?',
+    text: `Guten Tag. Ich bin dein Wahlrecht-Assistent. Welche rechtliche Frage hast du?`,
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+  // Reset chat when campaign changes
+  useEffect(() => {
+    setMessages([{ role: 'assistant', text: `Guten Tag. Ich bin dein Wahlrecht-Assistent${aktiveKampagne ? ` für die ${aktiveKampagne.wahltyp} in ${aktiveKampagne.ort}` : ''}. Welche rechtliche Frage hast du?` }])
+  }, [aktiveKampagne?.id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -65,7 +77,7 @@ export default function WahlrechtAssistent() {
         body: JSON.stringify({
           model: 'claude-sonnet-4-5',
           max_tokens: 800,
-          system: SYSTEM,
+          system: buildSystem(aktiveKampagne),
           messages: [...history, { role: 'user', content: q }],
         }),
       })

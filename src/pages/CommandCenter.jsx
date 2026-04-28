@@ -5,6 +5,7 @@ import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { NAV_GROUPS } from '../nav'
 import { GROUP_COLORS, isUrgent } from '../lib/utils'
+import { useKampagne } from '../lib/kampagneContext'
 import {
   RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
@@ -223,17 +224,19 @@ function PolarisChat({ articles = [] }) {
     setMessages(withUser)
     setLoading(true)
 
-    const system = `Du bist POLARIS, das politische Gehirn von Bildbrauerei für Jan Schlegel (Head of Politik).
+    const kampagnenListe = kampagnen.map(k => `${k.kandidat} ${k.wahltyp} ${k.ort}${k.wahldatum ? ' ' + new Date(k.wahldatum).toLocaleDateString('de-DE') : ''} (${k.partei})`).join(', ')
+    const system = `Du bist POLARIS, das politische Gehirn von Bildbrauerei.
 
 Deine Rolle:
-- Du denkst wie ein erfahrener CDU-Wahlkampfmanager: strategisch, scharf, manchmal mit trockenem Humor.
+- Du denkst wie ein erfahrener Wahlkampfmanager: strategisch, scharf, manchmal mit trockenem Humor.
 - Du bist die analytische Instanz: Du liest den Feed, erkennst Muster, ziehst Schlüsse.
 - Du gibst Einschätzungen, keine Zusammenfassungen. Beziehe Position, benenne Risiken, schlage Züge vor.
 - Knapp, konkret, deutsch. Keine PR-Floskeln. Kein Disclaimer-Geschwurbel.
-- Wenn dich Jan nach Lage fragt: Nenne 2–3 Top-Narrative mit Gegnerbezug und CDU-Wirkung.
-- Wenn er nach Empfehlungen fragt: Klare These + nächster Schritt. Keine Aufzählung ohne Priorisierung.
+- Wenn nach der Lage gefragt: Nenne 2–3 Top-Narrative mit Gegnerbezug und Wirkung.
+- Wenn nach Empfehlungen gefragt: Klare These + nächster Schritt. Keine Aufzählung ohne Priorisierung.
 
-Aktive bildbrauerei-Kampagnen: Jürgen Roth OB-Wahl Villingen-Schwenningen 27.09.2026 (parteilos/CDU-Unterstützung), Clemens Baumgärtner OB-Wahl München 2026 (CSU), Hendrik Wüst LTW NRW 2027 (CDU). Wenn Jan nach einer konkreten Kampagne fragt, beziehe dich darauf.
+Aktive Kampagne: ${aktiveKampagne?.kandidat}, ${aktiveKampagne?.wahltyp} ${aktiveKampagne?.ort}${aktiveKampagne?.wahldatum ? ', ' + new Date(aktiveKampagne.wahldatum).toLocaleDateString('de-DE') : ''} (${aktiveKampagne?.partei}).
+Alle bildbrauerei-Kampagnen: ${kampagnenListe}.
 
 ${buildContext()}
 
@@ -425,6 +428,7 @@ function Section({ title, color = '#52b7c1', right, children }) {
 }
 
 export default function CommandCenter() {
+  const { aktiveKampagne, kampagnen } = useKampagne()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend'
   const today = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
