@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Scale, Send, RefreshCw } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import PageHeader from '../components/ui/PageHeader'
 
 const FRAGEN = [
@@ -131,9 +132,23 @@ export default function WahlrechtAssistent() {
                   borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                   fontSize: '0.875rem', color: '#fff', lineHeight: 1.6,
                   border: m.role === 'assistant' ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                  whiteSpace: 'pre-wrap',
                 }}>
-                  {m.text}
+                  {m.role === 'assistant' ? (
+                    <ReactMarkdown components={{
+                      p: ({children}) => <p style={{ margin: '0 0 0.5em', lineHeight: 1.65 }}>{children}</p>,
+                      strong: ({children}) => <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>,
+                      h2: ({children}) => <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#F97316', margin: '0.75em 0 0.375em' }}>{children}</h2>,
+                      h3: ({children}) => <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'rgba(255,255,255,0.9)', margin: '0.625em 0 0.25em' }}>{children}</h3>,
+                      ul: ({children}) => <ul style={{ paddingLeft: '1.25em', margin: '0.375em 0' }}>{children}</ul>,
+                      ol: ({children}) => <ol style={{ paddingLeft: '1.25em', margin: '0.375em 0' }}>{children}</ol>,
+                      li: ({children}) => <li style={{ marginBottom: '0.25em', lineHeight: 1.55 }}>{children}</li>,
+                      code: ({children}) => <code style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 4, padding: '0.1em 0.35em', fontSize: '0.8125em', fontFamily: 'monospace' }}>{children}</code>,
+                    }}>
+                      {m.text}
+                    </ReactMarkdown>
+                  ) : (
+                    <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
+                  )}
                 </div>
               </div>
             ))}

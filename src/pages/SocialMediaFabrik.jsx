@@ -28,6 +28,8 @@ const TONE = [
 export default function SocialMediaFabrik() {
   const [plattform, setPlattform] = useState('instagram')
   const [tone, setTone] = useState('souveraen')
+  const [kandidat, setKandidat] = useState('Jürgen Roth')
+  const [ort, setOrt] = useState('Villingen-Schwenningen')
   const [thema, setThema] = useState('')
   const [kontext, setKontext] = useState('')
   const [ergebnis, setErgebnis] = useState('')
@@ -45,7 +47,7 @@ export default function SocialMediaFabrik() {
     setLoading(true)
     setErgebnis('')
 
-    const system = `Du bist ein erfahrener politischer Social-Media-Stratege für die CDU. Dein Mandant ist Jürgen Roth, Kandidat für die OB-Wahl in Villingen-Schwenningen (September 2026), parteilos mit CDU-Unterstützung.
+    const system = `Du bist ein erfahrener politischer Social-Media-Stratege für die CDU. Dein Mandant ist ${kandidat}, Kandidat für die OB-Wahl in ${ort} (September 2026), parteilos mit CDU-Unterstützung.
 
 Deine Aufgabe: Schreibe exzellente Social-Media-Posts und Pressemitteilungen, die Menschen bewegen.
 
@@ -140,6 +142,21 @@ Wichtig:
 
         {/* Eingabe */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+          {/* Kandidat / Ort */}
+          <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
+            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Kampagne</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Kandidat</label>
+                <input value={kandidat} onChange={e => setKandidat(e.target.value)} placeholder="z.B. Jürgen Roth" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Ort / Gemeinde</label>
+                <input value={ort} onChange={e => setOrt(e.target.value)} placeholder="z.B. Eppelheim" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+              </div>
+            </div>
+          </div>
 
           {/* Plattform */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
