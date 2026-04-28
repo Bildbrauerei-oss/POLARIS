@@ -94,15 +94,15 @@ export default function WahlrechtAssistent() {
           </div>
           {FRAGEN.map((f, i) => (
             <button key={i} onClick={() => send(f)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.625rem 1rem', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4, transition: 'all 0.12s' }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.625rem 1rem', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.85)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1.4, transition: 'all 0.12s' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.06)'; e.currentTarget.style.color = '#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)' }}
             >
               {f}
             </button>
           ))}
           <div style={{ padding: '0.75rem 1rem' }}>
-            <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.2)', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
               Kein Ersatz für Rechtsberatung. Bei rechtssicheren Entscheidungen bitte Fachanwalt konsultieren.
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function WahlrechtAssistent() {
             <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#F97316', textTransform: 'uppercase' }}>Wahlrecht-Chat · KomWG BW</span>
             <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
               <span style={{ width: 5, height: 5, background: '#22c55e', borderRadius: '50%', animation: 'pulse-dot 2s ease infinite' }} />
-              <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Claude Sonnet 4.5</span>
+              <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Claude Sonnet 4.5</span>
             </span>
           </div>
 
@@ -157,12 +157,12 @@ export default function WahlrechtAssistent() {
               onKeyDown={e => e.key === 'Enter' && !loading && send()}
               placeholder="Wahlrechtsfrage stellen…"
               disabled={loading}
-              style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.875rem', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.875rem', outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = 'rgba(249,115,22,0.5)'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.5)'}
             />
             <button onClick={() => send()} disabled={loading || !input.trim()} style={{ width: 36, height: 36, background: input.trim() && !loading ? '#F97316' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, cursor: input.trim() && !loading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s', flexShrink: 0 }}>
-              <Send size={13} color={input.trim() && !loading ? '#fff' : 'rgba(255,255,255,0.3)'} />
+              <Send size={13} color={input.trim() && !loading ? '#fff' : 'rgba(255,255,255,0.7)'} />
             </button>
           </div>
         </div>

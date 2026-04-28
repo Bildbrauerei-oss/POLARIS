@@ -9,8 +9,37 @@ import {
   RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
   TrendingUp, TrendingDown, Send,
-  ArrowUpRight, AlertTriangle
+  ArrowUpRight, AlertTriangle, History, Plus, Clock
 } from 'lucide-react'
+
+// Render Claude markdown as clean readable text: bold + paragraphs, no asterisks
+function renderMarkdown(text) {
+  if (!text) return null
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  const inline = parts.map((p, i) => {
+    if (p.startsWith('**') && p.endsWith('**')) {
+      return <strong key={i} style={{ fontWeight: 700, color: '#fff' }}>{p.slice(2, -2)}</strong>
+    }
+    return p
+  })
+  // Split by double newlines for paragraphs, single newlines get space
+  const rawText = text
+  const paragraphs = rawText.split(/\n{2,}/)
+  return paragraphs.map((para, pi) => {
+    const lines = para.split('\n')
+    const rendered = lines.flatMap((line, li) => {
+      const lineParts = line.split(/(\*\*[^*]+\*\*)/g).map((p, i) => {
+        if (p.startsWith('**') && p.endsWith('**')) {
+          return <strong key={i} style={{ fontWeight: 700, color: '#fff' }}>{p.slice(2, -2)}</strong>
+        }
+        // Clean leading bullets/dashes
+        return p.replace(/^[-•]\s+/, '')
+      })
+      return li < lines.length - 1 ? [...lineParts, <br key={`br-${li}`} />] : lineParts
+    })
+    return <p key={pi} style={{ margin: pi > 0 ? '0.625rem 0 0' : 0, lineHeight: 1.65 }}>{rendered}</p>
+  })
+}
 const QUICKLINKS = [
   { path: '/umfrage-radar',       label: 'Umfrage-Radar',       icon: BarChart2,  color: '#52b7c1' },
   { path: '/medien-monitor',      label: 'Medien-Monitor',      icon: Newspaper,  color: '#3B82F6' },
@@ -79,7 +108,7 @@ function MetricCard({ label, value, color = '#52b7c1', trend, loading }) {
 }
 
 function SentimentDot({ s }) {
-  const c = s === 'positiv' ? '#22c55e' : s === 'negativ' ? '#bf111b' : 'rgba(255,255,255,0.3)'
+  const c = s === 'positiv' ? '#22c55e' : s === 'negativ' ? '#bf111b' : 'rgba(255,255,255,0.7)'
   return <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, display: 'inline-block', flexShrink: 0 }} />
 }
 
@@ -118,14 +147,14 @@ function FeedItem({ a, index }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem' }}>
           <SentimentDot s={a.sentiment} />
           <span style={{ fontSize: '0.625rem', color: '#52b7c1', fontWeight: 600 }}>{a.quelle}</span>
-          <span style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.2)' }}>{ago}</span>
+          <span style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.45)' }}>{ago}</span>
         </div>
       </div>
       {a.url && (
         <a href={a.url} target="_blank" rel="noopener noreferrer"
-          style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0, alignSelf: 'flex-start', marginTop: 2, transition: 'color 0.15s' }}
+          style={{ color: 'rgba(255,255,255,0.55)', flexShrink: 0, alignSelf: 'flex-start', marginTop: 2, transition: 'color 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.color = '#52b7c1'}
-          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.15)'}>
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.55)'}>
           <ArrowUpRight size={12} />
         </a>
       )}
@@ -133,14 +162,25 @@ function FeedItem({ a, index }) {
   )
 }
 
+const CHAT_HISTORY_KEY = 'polaris_chat_history'
+const INITIAL_MSG = { role: 'assistant', text: 'Moin Jan. Was brauchst du – Lage, Gegnerzug, oder einen Winkel für morgen?' }
+
+function loadHistory() { try { return JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY)) || [] } catch { return [] } }
+function saveSession(msgs) {
+  if (msgs.length < 2) return
+  const h = loadHistory()
+  const userMsg = msgs.find(m => m.role === 'user')
+  const session = { id: Date.now(), ts: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), preview: userMsg?.text?.slice(0, 48) || 'Chat', messages: msgs }
+  localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([session, ...h.filter(s => s.id !== session.id)].slice(0, 5)))
+}
+
 // POLARIS Chat — politisches Gehirn mit Live-Kontext
 function PolarisChat({ articles = [] }) {
-  const [messages, setMessages] = useState([{
-    role: 'assistant',
-    text: 'Moin Jan. Was brauchst du – Lage, Gegnerzug, oder einen Winkel für morgen?',
-  }])
+  const [messages, setMessages] = useState([INITIAL_MSG])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [history, setHistory] = useState(loadHistory)
+  const [showHistory, setShowHistory] = useState(false)
   const bottomRef = useRef(null)
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
@@ -164,11 +204,23 @@ function PolarisChat({ articles = [] }) {
     return `AKTUELLER MEDIEN-FEED (Top 25 von ${articles.length}):\n${top}`
   }
 
+  function loadSession(session) {
+    setMessages(session.messages)
+    setShowHistory(false)
+  }
+
+  function newChat() {
+    if (messages.length > 1) saveSession(messages)
+    setMessages([INITIAL_MSG])
+    setHistory(loadHistory())
+  }
+
   async function send(text) {
     const q = text || input.trim()
     if (!q) return
     setInput('')
-    setMessages(m => [...m, { role: 'user', text: q }])
+    const withUser = [...messages, { role: 'user', text: q }]
+    setMessages(withUser)
     setLoading(true)
 
     const system = `Du bist POLARIS, das politische Gehirn von Bildbrauerei für Jan Schlegel (Head of Politik).
@@ -181,7 +233,7 @@ Deine Rolle:
 - Wenn dich Jan nach Lage fragt: Nenne 2–3 Top-Narrative mit Gegnerbezug und CDU-Wirkung.
 - Wenn er nach Empfehlungen fragt: Klare These + nächster Schritt. Keine Aufzählung ohne Priorisierung.
 
-Kontext (aktuelle Kampagne): Jürgen Roth, OB-Wahl Villingen-Schwenningen, September 2026, parteilos mit CDU-Unterstützung. OB-Wahl-Rhythmus BW: 8 Jahre.
+Aktive bildbrauerei-Kampagnen: Jürgen Roth OB-Wahl Villingen-Schwenningen 27.09.2026 (parteilos/CDU-Unterstützung), Clemens Baumgärtner OB-Wahl München 2026 (CSU), Hendrik Wüst LTW NRW 2027 (CDU). Wenn Jan nach einer konkreten Kampagne fragt, beziehe dich darauf.
 
 ${buildContext()}
 
@@ -190,6 +242,7 @@ Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Numm
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: AbortSignal.timeout(30000),
         headers: {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
@@ -204,7 +257,11 @@ Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Numm
         }),
       })
       const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', text: data.content?.[0]?.text || 'Kein Ergebnis.' }])
+      const assistantText = data.content?.[0]?.text || 'Kein Ergebnis.'
+      const newMessages = [...messages, { role: 'user', text: q }, { role: 'assistant', text: assistantText }]
+      setMessages(newMessages)
+      saveSession(newMessages)
+      setHistory(loadHistory())
     } catch {
       setMessages(m => [...m, { role: 'assistant', text: 'Verbindungsfehler. Bitte versuche es erneut.' }])
     }
@@ -212,21 +269,86 @@ Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Numm
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+      {/* Chat Toolbar */}
+      {!showHistory && (
+        <div style={{ display: 'flex', gap: '0.375rem', padding: '0.5rem 1rem 0', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowHistory(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.625rem', background: 'rgba(255,166,0,0.08)', border: '1px solid rgba(255,166,0,0.2)', borderRadius: 6, color: '#ffa600', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,166,0,0.15)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,166,0,0.08)'}
+          >
+            <History size={10} /> Verlauf {history.length > 0 && `(${history.length})`}
+          </button>
+          {messages.length > 1 && (
+            <button onClick={newChat}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.625rem', background: 'rgba(82,183,193,0.08)', border: '1px solid rgba(82,183,193,0.2)', borderRadius: 6, color: '#52b7c1', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(82,183,193,0.15)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(82,183,193,0.08)'}
+            >
+              <Plus size={10} /> Neuer Chat
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* History Panel */}
+      {showHistory && (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'absolute', top: 0, right: 0, bottom: 0, width: '100%', zIndex: 10,
+            background: '#162230', borderLeft: '1px solid rgba(255,166,0,0.15)',
+            display: 'flex', flexDirection: 'column',
+          }}
+        >
+          <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase' }}>Letzte Chats</span>
+            <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+            {history.length === 0 ? (
+              <p style={{ padding: '1.5rem', textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontSize: '0.8125rem' }}>Noch keine gespeicherten Chats.</p>
+            ) : history.map(s => (
+              <div key={s.id} onClick={() => loadSession(s)}
+                style={{ padding: '0.75rem 1rem', borderRadius: 10, cursor: 'pointer', marginBottom: '0.375rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', transition: 'background 0.12s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,166,0,0.07)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                  <Clock size={9} color="rgba(255,255,255,0.7)" />
+                  <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.7)' }}>{s.ts}</span>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.preview}…</p>
+                <span style={{ fontSize: '0.5625rem', color: 'rgba(255,166,0,0.6)' }}>{s.messages.length - 1} Nachrichten</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <button onClick={() => { newChat(); setShowHistory(false) }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem', background: 'rgba(255,166,0,0.1)', border: '1px solid rgba(255,166,0,0.25)', borderRadius: 8, color: '#ffa600', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Plus size={12} /> Neuer Chat
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{
-              maxWidth: '85%', padding: '0.625rem 0.875rem',
+              maxWidth: '88%', padding: '0.75rem 0.875rem',
               background: m.role === 'user'
                 ? 'linear-gradient(135deg, #52b7c1, #2d9aa5)'
                 : 'rgba(255,255,255,0.06)',
               borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-              fontSize: '0.8125rem', color: '#fff', lineHeight: 1.5,
+              fontSize: '0.8125rem', color: 'rgba(255,255,255,0.9)',
               border: m.role === 'assistant' ? '1px solid rgba(255,255,255,0.06)' : 'none',
             }}>
-              {m.text}
+              {m.role === 'assistant' ? renderMarkdown(m.text) : m.text}
             </div>
           </div>
         ))}
@@ -269,13 +391,13 @@ Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Numm
           placeholder="Frage stellen…"
           disabled={loading}
           style={{
-            flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.5)',
             borderRadius: 8, padding: '0.5rem 0.75rem',
             color: '#fff', fontSize: '0.8125rem', outline: 'none', fontFamily: 'inherit',
             transition: 'border-color 0.15s',
           }}
           onFocus={e => e.target.style.borderColor = 'rgba(82,183,193,0.5)'}
-          onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+          onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.5)'}
         />
         <button onClick={() => send()} disabled={loading || !input.trim()} style={{
           width: 34, height: 34, background: input.trim() && !loading ? '#52b7c1' : 'rgba(255,255,255,0.06)',
@@ -283,7 +405,7 @@ Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Numm
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background 0.15s', flexShrink: 0,
         }}>
-          <Send size={13} color={input.trim() && !loading ? '#fff' : 'rgba(255,255,255,0.3)'} />
+          <Send size={13} color={input.trim() && !loading ? '#fff' : 'rgba(255,255,255,0.7)'} />
         </button>
       </div>
     </div>
@@ -348,15 +470,15 @@ export default function CommandCenter() {
               <span style={{ width: 5, height: 5, background: '#22c55e', borderRadius: '50%', animation: 'pulse-dot 2s ease infinite' }} />
               System bereit
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-            <span style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', fontSize: '0.8125rem', color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>{today}</span>
+            <span style={{ color: 'rgba(255,255,255,0.4)' }}>·</span>
+            <span style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', fontSize: '0.8125rem', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }}>{today}</span>
           </div>
 
           <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '2.25rem', color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '0.5rem' }}>
             {greeting}, Jan.
           </h1>
-          <p style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', fontSize: '1rem', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic', marginBottom: '1.75rem' }}>
-            Jürgen Roth · OB-Wahl VS-Schwenningen · September 2026
+          <p style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', fontSize: '1rem', color: '#C8DCF0', fontStyle: 'italic', marginBottom: '1.75rem' }}>
+            Bildbrauerei · Political Campaign Intelligence
           </p>
 
           {/* Metric cards */}
@@ -374,7 +496,7 @@ export default function CommandCenter() {
                 flex: 1, minWidth: 0,
                 background: syncing ? '#1e2d3a' : '#bf111b',
                 border: `1px solid ${syncing ? 'rgba(82,183,193,0.2)' : 'transparent'}`,
-                borderTop: `3px solid ${syncing ? 'rgba(255,255,255,0.1)' : '#ff4040'}`,
+                borderTop: `3px solid ${syncing ? 'rgba(255,255,255,0.5)' : '#ff4040'}`,
                 borderRadius: 14, padding: '1.25rem',
                 cursor: syncing ? 'wait' : 'pointer',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
@@ -419,7 +541,7 @@ export default function CommandCenter() {
               <div style={{ width: 40, height: 40, background: `${item.color}15`, border: `1px solid ${item.color}25`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <item.icon size={17} color={item.color} />
               </div>
-              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'rgba(255,255,255,0.65)', lineHeight: 1.3 }}>{item.label}</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', lineHeight: 1.3 }}>{item.label}</span>
             </NavLink>
           </motion.div>
         ))}
@@ -430,20 +552,20 @@ export default function CommandCenter() {
 
         {/* COL 1: LIVE FEED */}
         <Section title="Morning Briefing · Live Feed" color="#52b7c1" right={
-          <NavLink to="/medien-monitor" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.6875rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600, transition: 'color 0.15s' }}
+          <NavLink to="/medien-monitor" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.6875rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, transition: 'color 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.color = '#52b7c1'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
             Alle <ChevronRight size={11} />
           </NavLink>
         }>
           <div style={{ maxHeight: 560, overflowY: 'auto' }}>
             {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>Wird geladen…</div>
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>Wird geladen…</div>
             ) : articles.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center' }}>
-                <Newspaper size={32} color="rgba(255,255,255,0.1)" style={{ margin: '0 auto 1rem' }} />
+                <Newspaper size={32} color="rgba(255,255,255,0.5)" style={{ margin: '0 auto 1rem' }} />
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: '0.375rem' }}>Noch keine Artikel</p>
-                <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8125rem' }}>Starte den Sync oben.</p>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8125rem' }}>Starte den Sync oben.</p>
               </div>
             ) : sortedFeed.map((a, i) => <FeedItem key={a.id} a={a} index={i} />)}
           </div>
@@ -453,7 +575,7 @@ export default function CommandCenter() {
         <Section title="POLARIS Chat · Das politische Gehirn" color="#ffa600" right={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
             <span style={{ width: 5, height: 5, background: '#22c55e', borderRadius: '50%', animation: 'pulse-dot 2s ease infinite' }} />
-            <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Claude Sonnet 4.5 · Live-Feed</span>
+            <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Claude Sonnet 4.5 · Live-Feed</span>
           </div>
         }>
           <div style={{ height: 560 }}>
@@ -483,7 +605,7 @@ export default function CommandCenter() {
                     onMouseEnter={e => e.currentTarget.style.background = `${color}10`}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <item.icon size={10} color={color} style={{ opacity: 0.7, flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.1s' }}>{item.label}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.1s' }}>{item.label}</span>
                   </NavLink>
                 ))}
               </motion.div>

@@ -113,7 +113,7 @@ const NAV_ITEMS = [
   { label: 'Medien', path: '/medien-monitor' },
   { label: 'Content', path: '/social-media-fabrik' },
   { label: 'Team', path: '/projekte' },
-  { label: 'Admin', path: '/admin-dashboard' },
+  { label: 'Admin', path: '/admin' },
 ]
 
 export default function Topbar({ onLogout }) {

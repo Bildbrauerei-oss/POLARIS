@@ -44,13 +44,13 @@ function saveVips(vips) {
 function sentimentStyle(s) {
   if (s === 'positiv') return { color: '#22C55E', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.25)' }
   if (s === 'negativ') return { color: '#ff9999', bg: 'rgba(191,17,27,0.1)', border: 'rgba(191,17,27,0.25)' }
-  return { color: 'rgba(255,255,255,0.35)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' }
+  return { color: 'rgba(255,255,255,0.35)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.5)' }
 }
 
 function cduWirkungStyle(w) {
   if (w === 'positiv') return { color: '#52b7c1', bg: 'rgba(82,183,193,0.1)', border: 'rgba(82,183,193,0.3)', label: 'CDU ↑' }
   if (w === 'negativ') return { color: '#ff6b6b', bg: 'rgba(191,17,27,0.12)', border: 'rgba(191,17,27,0.3)', label: 'CDU ↓' }
-  return { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', label: 'CDU →' }
+  return { color: 'rgba(255,255,255,0.7)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', label: 'CDU →' }
 }
 
 function formatDate(d, full = false) {
@@ -70,22 +70,27 @@ function ArticleCard({ a, i, showFullDate = false }) {
   const ss = sentimentStyle(a.sentiment)
   const cw = cduWirkungStyle(a.cdu_wirkung)
   const urgent = isUrgent(a)
+  const [hover, setHover] = useState(false)
+
+  const baseBg = urgent ? 'rgba(191,17,27,0.05)' : '#162230'
+  const hoverBg = urgent ? 'rgba(191,17,27,0.10)' : 'rgba(82,183,193,0.05)'
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(i * 0.015, 0.25) }}
+      transition={{ delay: Math.min(i * 0.015, 0.25), duration: 0.25 }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
       style={{
-        background: urgent ? 'rgba(191,17,27,0.05)' : '#162230',
+        background: hover ? hoverBg : baseBg,
         border: `1px solid ${urgent ? 'rgba(191,17,27,0.25)' : 'rgba(82,183,193,0.08)'}`,
         borderLeft: `3px solid ${urgent ? '#bf111b' : a.cdu_wirkung === 'positiv' ? '#52b7c1' : a.cdu_wirkung === 'negativ' ? '#bf111b' : 'rgba(255,255,255,0.08)'}`,
         borderRadius: 10, padding: '0.875rem 1rem',
         cursor: a.url ? 'pointer' : 'default',
-        transition: 'background 0.15s',
+        transition: 'background 0.15s, border-color 0.15s',
       }}
-      whileHover={{ background: urgent ? 'rgba(191,17,27,0.08)' : 'rgba(82,183,193,0.03)' }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -127,7 +132,7 @@ function ArticleCard({ a, i, showFullDate = false }) {
               <Clock size={9} />{formatDate(a.datum, showFullDate)}
             </span>
             {a.suchbegriff && (
-              <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.15)', fontStyle: 'italic' }}>{a.suchbegriff}</span>
+              <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>{a.suchbegriff}</span>
             )}
           </div>
         </div>
@@ -170,7 +175,7 @@ function VipSidebar({ selectedVips, onToggleVip, onClearVips }) {
       <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <Star size={11} color="#ffa600" />
         <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase' }}>VIP-Liste</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.2)' }}>{vips.length}</span>
+        <span style={{ marginLeft: 'auto', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.6)' }}>{vips.length}</span>
       </div>
 
       <div style={{ padding: '0.625rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '0.375rem' }}>
@@ -209,7 +214,7 @@ function VipSidebar({ selectedVips, onToggleVip, onClearVips }) {
             >
               <input type="checkbox" checked={active} readOnly
                 style={{ accentColor: '#ffa600', cursor: 'pointer', flexShrink: 0, width: 12, height: 12 }} />
-              <User size={10} color={active ? '#ffa600' : 'rgba(255,255,255,0.3)'} style={{ flexShrink: 0 }} />
+              <User size={10} color={active ? '#ffa600' : 'rgba(255,255,255,0.7)'} style={{ flexShrink: 0 }} />
               <span style={{ flex: 1, fontSize: '0.8125rem', color: active ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
               <button onClick={e => { e.stopPropagation(); removeVip(name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.12)', display: 'flex', transition: 'color 0.1s', padding: 2 }}
                 onMouseEnter={e => e.currentTarget.style.color = '#bf111b'}
@@ -261,8 +266,8 @@ function MonitoringListenSidebar({ selectedListe, onSelectListe }) {
         style={{ padding: '0.75rem 1rem', borderBottom: open ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
       >
         <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#A855F7', textTransform: 'uppercase' }}>Monitoring Listen</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.2)', marginRight: '0.25rem' }}>{listen.length}</span>
-        {open ? <ChevronUp size={11} color="rgba(255,255,255,0.3)" /> : <ChevronDown size={11} color="rgba(255,255,255,0.3)" />}
+        <span style={{ marginLeft: 'auto', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.6)', marginRight: '0.25rem' }}>{listen.length}</span>
+        {open ? <ChevronUp size={11} color="rgba(255,255,255,0.7)" /> : <ChevronDown size={11} color="rgba(255,255,255,0.7)" />}
       </div>
 
       {open && (
@@ -299,9 +304,9 @@ function MonitoringListenSidebar({ selectedListe, onSelectListe }) {
           {/* List items */}
           <div style={{ maxHeight: 240, overflowY: 'auto' }}>
             {loading ? (
-              <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Laden…</div>
+              <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Laden…</div>
             ) : listen.length === 0 ? (
-              <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Noch keine Listen</div>
+              <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Noch keine Listen</div>
             ) : listen.map(l => (
               <div key={l.id}
                 onClick={() => onSelectListe(selectedListe === l.name ? null : l.name)}
@@ -317,7 +322,7 @@ function MonitoringListenSidebar({ selectedListe, onSelectListe }) {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '0.8125rem', color: selectedListe === l.name ? '#fff' : 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</p>
-                  <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.beschreibung}</p>
+                  <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.beschreibung}</p>
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); removeListe(l.id, l.name) }}
@@ -384,6 +389,8 @@ async function fetchVipNewsMulti(names) {
   return deduped.sort((a, b) => new Date(b.datum) - new Date(a.datum))
 }
 
+const PAGE_SIZE = 20
+
 export default function MedienMonitor() {
   const [searchText, setSearchText] = useState('')
   const [selectedVips, setSelectedVips] = useState([])
@@ -392,6 +399,8 @@ export default function MedienMonitor() {
   const [vipLoading, setVipLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncLog, setSyncLog] = useState(null)
+  const [page, setPage] = useState(1)
+  const [quickFilter, setQuickFilter] = useState(null) // 'urgent' | 'heute' | 'cdu_neg' | 'cdu_pos' | null
   const lastRun = getLastRun()
 
   const vipMode = selectedVips.length > 0
@@ -417,9 +426,28 @@ export default function MedienMonitor() {
   const filteredVipNews = searchText
     ? vipNews.filter(a => a.titel?.toLowerCase().includes(searchText.toLowerCase()))
     : vipNews
-  const displayArticles = vipMode ? filteredVipNews : articles
+
+  // Quick filter anwenden
+  function applyQuickFilter(list) {
+    if (!quickFilter) return list
+    const today = new Date().toDateString()
+    if (quickFilter === 'urgent') return list.filter(a => isUrgent(a))
+    if (quickFilter === 'heute') return list.filter(a => a.datum && new Date(a.datum).toDateString() === today)
+    if (quickFilter === 'cdu_neg') return list.filter(a => a.cdu_wirkung === 'negativ')
+    if (quickFilter === 'cdu_pos') return list.filter(a => a.cdu_wirkung === 'positiv')
+    return list
+  }
+
+  const displayArticlesRaw = vipMode ? filteredVipNews : articles
+  const displayArticles = applyQuickFilter(displayArticlesRaw)
   const displayLoading = vipMode ? vipLoading : loading
-  const displayCount = vipMode ? filteredVipNews.length : count
+  const displayCount = displayArticles.length
+
+  const totalPages = Math.ceil(displayArticles.length / PAGE_SIZE)
+  const pagedArticles = displayArticles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // Reset page when filter changes
+  useEffect(() => { setPage(1) }, [selectedVips.join('|'), selectedListe, searchText, quickFilter])
 
   async function handleSync() {
     setSyncing(true); setSyncLog(null)
@@ -444,16 +472,18 @@ export default function MedienMonitor() {
           <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1.75rem', color: '#fff', letterSpacing: '-0.03em', marginBottom: '0.25rem' }}>
             Medien-Monitor
           </h1>
-          <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.35)' }}>
-            {activeFilter} · {displayCount} Artikel
-            {lastRun && <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>Sync: {lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
+          <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.55)' }}>
+            {activeFilter}
+            {quickFilter && <span style={{ marginLeft: '0.5rem', color: quickFilter === 'urgent' ? '#ff6b6b' : quickFilter === 'heute' ? '#ffa600' : quickFilter === 'cdu_neg' ? '#A855F7' : '#52b7c1', fontWeight: 700 }}>· Filter aktiv</span>}
+            {' · '}{displayCount} Artikel
+            {lastRun && <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>Sync: {lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
           </p>
         </div>
         <button onClick={handleSync} disabled={syncing} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
           padding: '0.625rem 1.125rem',
           background: syncing ? 'rgba(255,255,255,0.05)' : '#bf111b',
-          border: `1px solid ${syncing ? 'rgba(255,255,255,0.1)' : 'transparent'}`,
+          border: `1px solid ${syncing ? 'rgba(255,255,255,0.5)' : 'transparent'}`,
           borderRadius: 10, color: '#fff', fontSize: '0.8125rem',
           fontWeight: 700, cursor: syncing ? 'wait' : 'pointer',
           boxShadow: syncing ? 'none' : '0 4px 16px rgba(191,17,27,0.3)',
@@ -465,19 +495,35 @@ export default function MedienMonitor() {
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
 
-      {/* Stats */}
+      {/* Stats — klickbar als Quick-Filter */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
         {[
-          { label: 'Artikel gesamt', value: count, color: '#52b7c1' },
-          { label: 'Dringend', value: urgentArticles.length, color: '#bf111b' },
-          { label: 'Heute', value: todayCount, color: '#ffa600' },
-          { label: 'CDU negativ', value: articles.filter(a => a.cdu_wirkung === 'negativ').length, color: '#A855F7' },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderTop: `3px solid ${s.color}`, borderRadius: 12, padding: '0.875rem 1rem' }}>
-            <div style={{ fontSize: '0.5rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>{s.label}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1.5rem', color: '#fff', letterSpacing: '-0.03em' }}>{loading ? '—' : s.value}</div>
-          </div>
-        ))}
+          { label: 'Artikel gesamt', value: count, color: '#52b7c1', key: null },
+          { label: 'Dringend', value: urgentArticles.length, color: '#bf111b', key: 'urgent' },
+          { label: 'Heute', value: todayCount, color: '#ffa600', key: 'heute' },
+          { label: 'CDU negativ', value: articles.filter(a => a.cdu_wirkung === 'negativ').length, color: '#A855F7', key: 'cdu_neg' },
+        ].map(s => {
+          const active = quickFilter === s.key
+          return (
+            <div key={s.label}
+              onClick={() => setQuickFilter(active ? null : s.key)}
+              style={{
+                background: active ? `rgba(${s.color === '#52b7c1' ? '82,183,193' : s.color === '#bf111b' ? '191,17,27' : s.color === '#ffa600' ? '255,166,0' : '168,85,247'},0.12)` : '#162230',
+                border: `1px solid ${active ? s.color : 'rgba(82,183,193,0.12)'}`,
+                borderTop: `3px solid ${s.color}`, borderRadius: 12, padding: '0.875rem 1rem',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = s.color + '66' }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = 'rgba(82,183,193,0.12)' }}
+            >
+              <div style={{ fontSize: '0.5rem', fontWeight: 700, color: active ? s.color : 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {s.label}
+                {active && <span style={{ fontSize: '0.5rem', color: s.color, fontWeight: 900 }}>✕</span>}
+              </div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 900, fontSize: '1.5rem', color: active ? s.color : '#fff', letterSpacing: '-0.03em' }}>{loading ? '—' : s.value}</div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Sync Log */}
@@ -503,7 +549,7 @@ export default function MedienMonitor() {
         <div>
           {/* Suchfeld */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '0.5rem 1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            <Search size={13} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
+            <Search size={13} color="rgba(255,255,255,0.65)" style={{ flexShrink: 0 }} />
             <input
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
@@ -511,9 +557,9 @@ export default function MedienMonitor() {
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: '0.875rem', fontFamily: 'inherit' }}
             />
             {searchText && (
-              <button onClick={() => setSearchText('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', padding: 2, transition: 'color 0.1s' }}
+              <button onClick={() => setSearchText('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex', padding: 2, transition: 'color 0.1s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
                 <X size={13} />
               </button>
             )}
@@ -531,20 +577,55 @@ export default function MedienMonitor() {
 
           {/* Articles */}
           {displayLoading ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.875rem' }}>
+            <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
               {vipMode ? `Suche Artikel zu ${selectedVips.length > 1 ? `${selectedVips.length} Personen` : selectedVips[0]}…` : 'Wird geladen…'}
             </div>
           ) : displayArticles.length === 0 ? (
             <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10, padding: '4rem', textAlign: 'center' }}>
               <Newspaper size={36} color="rgba(82,183,193,0.12)" style={{ margin: '0 auto 1rem' }} />
-              <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.875rem' }}>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
                 {vipMode ? `Keine Artikel in den letzten 30 Tagen zu ${selectedVips.join(', ')}` : selectedListe ? `Keine Artikel für Liste "${selectedListe}"` : 'Keine Artikel. Starte den Feed-Sync.'}
               </p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              {displayArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} showFullDate={vipMode} />)}
-            </div>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                {pagedArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} showFullDate={vipMode} />)}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', padding: '0.75rem 1rem', background: '#162230', border: '1px solid rgba(82,183,193,0.1)', borderRadius: 10 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
+                    Seite {page} von {totalPages} · {displayArticles.length} Artikel
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.375rem' }}>
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      style={{ padding: '0.375rem 0.75rem', background: page === 1 ? 'rgba(255,255,255,0.04)' : 'rgba(82,183,193,0.1)', border: '1px solid rgba(82,183,193,0.2)', borderRadius: 7, color: page === 1 ? 'rgba(255,255,255,0.6)' : '#52b7c1', fontSize: '0.75rem', fontWeight: 700, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      ← Zurück
+                    </button>
+                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                      const p = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i
+                      return (
+                        <button key={p} onClick={() => setPage(p)} style={{ width: 32, height: 32, background: page === p ? '#52b7c1' : 'rgba(255,255,255,0.04)', border: `1px solid ${page === p ? '#52b7c1' : 'rgba(255,255,255,0.5)'}`, borderRadius: 7, color: page === p ? '#0F1C30' : 'rgba(255,255,255,0.6)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                          {p}
+                        </button>
+                      )
+                    })}
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      style={{ padding: '0.375rem 0.75rem', background: page === totalPages ? 'rgba(255,255,255,0.04)' : 'rgba(82,183,193,0.1)', border: '1px solid rgba(82,183,193,0.2)', borderRadius: 7, color: page === totalPages ? 'rgba(255,255,255,0.6)' : '#52b7c1', fontSize: '0.75rem', fontWeight: 700, cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Weiter →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

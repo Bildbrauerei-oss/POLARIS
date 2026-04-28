@@ -1,134 +1,261 @@
-import { useState } from 'react'
-import { useArticles } from '../hooks/useArticles'
-import { runFeedSync, getLastRun } from '../lib/feedCron'
+import { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
+import { Monitor, RefreshCw, ExternalLink, Clock, Plus, X, MapPin } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { Monitor, RefreshCw, ExternalLink, AlertTriangle, Clock } from 'lucide-react'
 
-const PARTEIEN = ['', 'spd.de', 'gruene.de', 'afd.de', 'fdp.de', 'bsw.de']
-const PARTEI_LABELS = { 'spd.de': 'SPD', 'gruene.de': 'Grüne', 'afd.de': 'AfD', 'fdp.de': 'FDP', 'bsw.de': 'BSW' }
-const PARTEI_COLORS = { 'spd.de': '#E3000F', 'gruene.de': '#46962B', 'afd.de': '#009EE0', 'fdp.de': '#FFED00', 'bsw.de': '#7B2D8B' }
+const PARTEIEN = [
+  { id: 'spd',    label: 'SPD',    color: '#E3000F', query: 'SPD Sozialdemokraten Politik' },
+  { id: 'gruene', label: 'Grüne',  color: '#46962B', query: 'Grüne Bündnis 90 Habeck Baerbock' },
+  { id: 'afd',    label: 'AfD',    color: '#009EE0', query: 'AfD Alternative Deutschland Weidel' },
+  { id: 'fdp',    label: 'FDP',    color: '#FFD700', query: 'FDP Freie Demokraten Lindner' },
+  { id: 'bsw',    label: 'BSW',    color: '#9B59B6', query: 'BSW Bündnis Sahra Wagenknecht' },
+]
 
-function formatDate(d) {
-  if (!d) return '—'
-  try { return new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch { return '—' }
+const LOC_KEY = 'polaris_gegner_lists'
+function loadLists() { try { return JSON.parse(localStorage.getItem(LOC_KEY)) || [] } catch { return [] } }
+function saveLists(l) { localStorage.setItem(LOC_KEY, JSON.stringify(l)) }
+
+async function fetchPartyNews(query) {
+  try {
+    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query + ' when:3d')}&hl=de&gl=DE&ceid=DE:de`
+    const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(12000) })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xml, 'text/xml')
+    return Array.from(doc.querySelectorAll('item')).slice(0, 5).map(item => ({
+      titel: item.querySelector('title')?.textContent?.trim() || '',
+      url: item.querySelector('link')?.textContent?.trim() || '',
+      quelle: item.querySelector('source')?.textContent?.trim() || 'Google News',
+      datum: item.querySelector('pubDate')?.textContent?.trim() || '',
+    }))
+  } catch { return [] }
+}
+
+function formatAgo(d) {
+  if (!d) return ''
+  try {
+    const m = (Date.now() - new Date(d)) / 60000
+    if (m < 60) return `${Math.round(m)}m`
+    if (m < 1440) return `${Math.round(m / 60)}h`
+    return `${Math.round(m / 1440)}T`
+  } catch { return '' }
+}
+
+function PartyColumn({ p, news, loading }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: '#162230',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderTop: `3px solid ${p.color}`,
+        borderRadius: 14, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', minHeight: 300,
+      }}
+    >
+      <div style={{ padding: '0.875rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: p.color }}>{p.label}</span>
+        <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>Top 5 · 3 Tage</span>
+      </div>
+      <div style={{ flex: 1 }}>
+        {loading ? (
+          <div style={{ padding: '2.5rem', textAlign: 'center' }}>
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+              {[0, 1, 2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: p.color, opacity: 0.5, animation: `pulse-dot 1.2s ease ${i * 0.2}s infinite` }} />)}
+            </div>
+          </div>
+        ) : news.length === 0 ? (
+          <div style={{ padding: '2.5rem', textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem' }}>Keine aktuellen Artikel</div>
+        ) : news.map((a, i) => (
+          <div
+            key={i}
+            onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
+            style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: a.url ? 'pointer' : 'default', transition: 'background 0.12s', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}
+            onMouseEnter={e => e.currentTarget.style.background = `${p.color}0A`}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <span style={{ fontSize: '0.5625rem', fontWeight: 800, color: p.color, opacity: 0.7, minWidth: 14, paddingTop: 3, flexShrink: 0 }}>{i + 1}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#fff', lineHeight: 1.45, marginBottom: '0.25rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {a.titel}
+              </p>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.5625rem', color: p.color, fontWeight: 600, opacity: 0.85 }}>{a.quelle}</span>
+                {a.datum && <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 2 }}><Clock size={8} />{formatAgo(a.datum)}</span>}
+              </div>
+            </div>
+            {a.url && <ExternalLink size={10} color="rgba(255,255,255,0.6)" style={{ flexShrink: 0, marginTop: 3 }} />}
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+function OrtslisitenPanel() {
+  const [lists, setLists] = useState(loadLists)
+  const [input, setInput] = useState('')
+  const [news, setNews] = useState({})
+  const [loading, setLoading] = useState({})
+
+  function add() {
+    const name = input.trim()
+    if (!name || lists.includes(name)) return
+    const next = [...lists, name]
+    setLists(next); saveLists(next); setInput('')
+  }
+
+  function remove(name) {
+    const next = lists.filter(l => l !== name)
+    setLists(next); saveLists(next)
+    setNews(n => { const c = { ...n }; delete c[name]; return c })
+  }
+
+  async function fetchList(name) {
+    setLoading(l => ({ ...l, [name]: true }))
+    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(name + ' Politik when:7d')}&hl=de&gl=DE&ceid=DE:de`
+    try {
+      const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(12000) })
+      if (!res.ok) throw new Error()
+      const xml = await res.text()
+      const doc = new DOMParser().parseFromString(xml, 'text/xml')
+      const items = Array.from(doc.querySelectorAll('item')).slice(0, 5).map(item => ({
+        titel: item.querySelector('title')?.textContent?.trim() || '',
+        url: item.querySelector('link')?.textContent?.trim() || '',
+        quelle: item.querySelector('source')?.textContent?.trim() || 'Google News',
+        datum: item.querySelector('pubDate')?.textContent?.trim() || '',
+      }))
+      setNews(n => ({ ...n, [name]: items }))
+    } catch {
+      setNews(n => ({ ...n, [name]: [] }))
+    }
+    setLoading(l => ({ ...l, [name]: false }))
+  }
+
+  return (
+    <div style={{ background: '#162230', border: '1px solid rgba(168,85,247,0.2)', borderTop: '3px solid #A855F7', borderRadius: 14, padding: '1.25rem', marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+        <MapPin size={14} color="#A855F7" />
+        <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#A855F7', textTransform: 'uppercase' }}>Standort-Monitoring</span>
+        <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.35)' }}>z.B. "Villingen-Schwenningen", "Baden-Württemberg"</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="Ort, Region oder Bundesland eingeben…"
+          style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.8125rem', outline: 'none', fontFamily: 'inherit' }}
+          onFocus={e => e.target.style.borderColor = 'rgba(168,85,247,0.5)'}
+          onBlur={e => e.target.style.borderColor = 'rgba(168,85,247,0.2)'}
+        />
+        <button onClick={add} disabled={!input.trim()} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', background: input.trim() ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${input.trim() ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 8, color: input.trim() ? '#A855F7' : 'rgba(255,255,255,0.7)', fontSize: '0.8125rem', fontWeight: 700, cursor: input.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+          <Plus size={12} /> Hinzufügen
+        </button>
+      </div>
+
+      {lists.length === 0 ? (
+        <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center', padding: '1.5rem' }}>Noch keine Standorte. Füge eine Stadt oder Region hinzu.</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+          {lists.map(name => (
+            <div key={name} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(168,85,247,0.15)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '0.625rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MapPin size={10} color="#A855F7" />
+                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#fff', flex: 1 }}>{name}</span>
+                <button onClick={() => fetchList(name)} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.5rem', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 5, color: '#A855F7', fontSize: '0.5625rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <RefreshCw size={8} style={{ animation: loading[name] ? 'spin 0.8s linear infinite' : 'none' }} /> Laden
+                </button>
+                <button onClick={() => remove(name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: 2, transition: 'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#ef4444'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
+                  <X size={11} />
+                </button>
+              </div>
+              <div>
+                {!news[name] ? (
+                  <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Auf "Laden" klicken</p>
+                ) : loading[name] ? (
+                  <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Lädt…</p>
+                ) : news[name].length === 0 ? (
+                  <p style={{ padding: '1rem', fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>Keine Artikel gefunden</p>
+                ) : news[name].map((a, i) => (
+                  <div key={i} onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
+                    style={{ padding: '0.5rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.12s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(168,85,247,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <p style={{ fontSize: '0.75rem', color: '#fff', lineHeight: 1.4, marginBottom: '0.15rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.titel}</p>
+                    <span style={{ fontSize: '0.5625rem', color: '#A855F7', fontWeight: 600, opacity: 0.8 }}>{a.quelle}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
 }
 
 export default function OppositionMonitoring() {
-  const [partei, setPartei] = useState('')
+  const [newsData, setNewsData] = useState({})
+  const [loading, setLoading] = useState({})
   const [syncing, setSyncing] = useState(false)
-  const lastRun = getLastRun()
 
-  const { articles, loading, count, refetch } = useArticles({ kategorie: 'gegner', limit: 200 })
-
-  const filtered = partei ? articles.filter(a => a.quelle?.includes(partei)) : articles
-  const attacks = filtered.filter(a => a.handlungsbedarf || a.sentiment === 'negativ')
-
-  async function handleSync() {
+  const fetchAll = useCallback(async () => {
     setSyncing(true)
-    await runFeedSync(true)
-    setSyncing(false)
-    refetch()
-  }
+    const newLoading = {}
+    PARTEIEN.forEach(p => { newLoading[p.id] = true })
+    setLoading(newLoading)
 
-  const stats = PARTEIEN.filter(Boolean).map(p => ({
-    partei: p,
-    label: PARTEI_LABELS[p] || p,
-    color: PARTEI_COLORS[p] || '#94A3B8',
-    count: articles.filter(a => a.quelle?.includes(p)).length,
-  }))
+    await Promise.all(PARTEIEN.map(async p => {
+      const results = await fetchPartyNews(p.query)
+      setNewsData(d => ({ ...d, [p.id]: results }))
+      setLoading(l => ({ ...l, [p.id]: false }))
+    }))
+    setSyncing(false)
+  }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const totalArticles = Object.values(newsData).reduce((s, a) => s + (a?.length || 0), 0)
 
   return (
-    <div style={{ maxWidth: 1200 }}>
+    <div style={{ width: '100%' }}>
       <PageHeader
-        title="Opposition Monitoring"
-        description="24/7-Beobachtung von SPD, Grüne, AfD, FDP und BSW."
+        title="Gegner-Analyse"
+        description="Top 5 Presseartikel pro Partei der letzten 3 Tage — live aus Google News."
         icon={Monitor}
         color="#A855F7"
       >
-        <button onClick={handleSync} disabled={syncing} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1.125rem', background: syncing ? '#253550' : '#A855F7', border: 'none', borderRadius: 6, color: '#fff', fontSize: '0.8125rem', fontWeight: 700, cursor: syncing ? 'wait' : 'pointer' }}>
+        <button onClick={fetchAll} disabled={syncing} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1.125rem', background: syncing ? 'rgba(168,85,247,0.08)' : 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 10, color: '#A855F7', fontSize: '0.8125rem', fontWeight: 700, cursor: syncing ? 'wait' : 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
           <RefreshCw size={13} style={{ animation: syncing ? 'spin 0.8s linear infinite' : 'none' }} />
-          {syncing ? 'Läuft…' : 'Aktualisieren'}
+          {syncing ? 'Lädt…' : 'Aktualisieren'}
         </button>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </PageHeader>
 
-      {/* Partei-Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
-        {stats.map(s => (
-          <button key={s.partei} onClick={() => setPartei(partei === s.partei ? '' : s.partei)} style={{
-            background: partei === s.partei ? `${s.color}15` : '#1E293B',
-            border: `1px solid ${partei === s.partei ? s.color : '#334155'}`,
-            borderRadius: 8, padding: '0.875rem', textAlign: 'center', cursor: 'pointer',
-            borderTop: `3px solid ${s.color}`, transition: 'all 0.15s',
-          }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#F8FAFC', letterSpacing: '-0.02em' }}>{s.count}</div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: s.color, marginTop: '0.25rem' }}>{s.label}</div>
-          </button>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.625rem', marginBottom: '1.25rem' }}>
+        {PARTEIEN.map(p => (
+          <div key={p.id} style={{ background: '#162230', border: `1px solid rgba(255,255,255,0.06)`, borderTop: `3px solid ${p.color}`, borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{newsData[p.id]?.length ?? '—'}</div>
+            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: p.color, marginTop: '0.25rem' }}>{p.label}</div>
+          </div>
         ))}
       </div>
 
-      {/* Angriffs-Banner */}
-      {attacks.length > 0 && (
-        <div style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 8, padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <AlertTriangle size={16} color="#A855F7" />
-          <span style={{ fontSize: '0.875rem', color: '#D8B4FE', fontWeight: 600 }}>
-            {attacks.length} potenzielle Angriffe auf CDU erkannt
-          </span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.6875rem', color: '#64748B' }}>
-            Letzter Sync: {lastRun ? lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '—'}
-          </span>
-        </div>
-      )}
+      {/* Party Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.875rem', marginBottom: '0.5rem' }}>
+        {PARTEIEN.map(p => (
+          <PartyColumn key={p.id} p={p} news={newsData[p.id] || []} loading={loading[p.id]} />
+        ))}
+      </div>
 
-      {loading ? <LoadingSpinner /> : filtered.length === 0 ? (
-        <div style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: 8, padding: '4rem', textAlign: 'center' }}>
-          <Monitor size={40} color="#253550" style={{ margin: '0 auto 1rem' }} />
-          <p style={{ color: '#64748B' }}>Keine Oppositionsartikel vorhanden. Starte den Feed-Sync.</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {filtered.map(a => {
-            const isAttack = a.handlungsbedarf || a.sentiment === 'negativ'
-            const quellColor = Object.entries(PARTEI_COLORS).find(([k]) => a.quelle?.includes(k))?.[1] || '#64748B'
-            return (
-              <div key={a.id} style={{
-                background: isAttack ? 'rgba(168,85,247,0.06)' : '#1E293B',
-                border: `1px solid ${isAttack ? 'rgba(168,85,247,0.3)' : '#334155'}`,
-                borderRadius: 8, padding: '1rem 1.25rem',
-                borderLeft: `3px solid ${isAttack ? '#A855F7' : quellColor}30`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.5625rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: 4, background: `${quellColor}20`, color: quellColor, border: `1px solid ${quellColor}40`, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {Object.entries(PARTEI_LABELS).find(([k]) => a.quelle?.includes(k))?.[1] || a.quelle}
-                      </span>
-                      {isAttack && <span style={{ fontSize: '0.5625rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: 4, background: 'rgba(168,85,247,0.12)', color: '#A855F7', border: '1px solid rgba(168,85,247,0.25)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Angriff</span>}
-                      {a.relevanz && <span style={{ fontSize: '0.5625rem', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{a.relevanz}</span>}
-                    </div>
-                    <p style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#E2E8F0', lineHeight: 1.4, marginBottom: '0.375rem' }}>{a.titel}</p>
-                    {a.zusammenfassung && <p style={{ fontSize: '0.8125rem', color: '#94A3B8', lineHeight: 1.5 }}>{a.zusammenfassung}</p>}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginTop: '0.5rem' }}>
-                      <span style={{ fontSize: '0.6875rem', color: '#475569', fontWeight: 600 }}>{a.quelle}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.6875rem', color: '#334155' }}>
-                        <Clock size={10} />{formatDate(a.datum)}
-                      </span>
-                    </div>
-                  </div>
-                  {a.url && (
-                    <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: '#475569', flexShrink: 0 }}
-                      onMouseEnter={e => e.currentTarget.style.color = '#A855F7'}
-                      onMouseLeave={e => e.currentTarget.style.color = '#475569'}>
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Location Monitoring */}
+      <OrtslisitenPanel />
     </div>
   )
 }

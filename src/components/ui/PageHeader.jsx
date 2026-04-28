@@ -15,7 +15,7 @@ export default function PageHeader({ title, description, status, children, icon:
             {status && <StatusBadge status={status} />}
           </div>
           {description && (
-            <p style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', color: 'rgba(255,255,255,0.5)', fontSize: '0.9375rem', lineHeight: 1.5, maxWidth: 560, fontStyle: 'italic' }}>
+            <p style={{ fontFamily: '"IBM Plex Serif", Georgia, serif', color: '#C8DCF0', fontSize: '0.9375rem', lineHeight: 1.5, maxWidth: 560, fontStyle: 'italic' }}>
               {description}
             </p>
           )}

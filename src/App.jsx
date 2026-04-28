@@ -11,6 +11,16 @@ import StimmungsKompass from './pages/StimmungsKompass'
 import ThemenCockpit from './pages/ThemenCockpit'
 import SocialMediaFabrik from './pages/SocialMediaFabrik'
 import WahlrechtAssistent from './pages/WahlrechtAssistent'
+import NarrativDetektor from './pages/NarrativDetektor'
+import ThemenFruehwarnsystem from './pages/ThemenFruehwarnsystem'
+import GeburtstagRadar from './pages/GeburtstagRadar'
+import WahlkampfPlaner from './pages/WahlkampfPlaner'
+import MicroTargeting from './pages/MicroTargeting'
+import ZitatDatenbank from './pages/ZitatDatenbank'
+import Projekte from './pages/Projekte'
+import KollegenBoard from './pages/KollegenBoard'
+import AdminDashboard from './pages/AdminDashboard'
+import Morgenbriefing from './pages/Morgenbriefing'
 import ModulePage from './pages/ModulePage'
 import NotFound from './pages/NotFound'
 import { ALL_MODULES } from './nav'
@@ -23,6 +33,16 @@ const CUSTOM_PAGES = {
   '/themen-cockpit': ThemenCockpit,
   '/social-media-fabrik': SocialMediaFabrik,
   '/wahlrecht-assistent': WahlrechtAssistent,
+  '/narrativ-detektor': NarrativDetektor,
+  '/themen-fruehwarnsystem': ThemenFruehwarnsystem,
+  '/geburtstags-radar': GeburtstagRadar,
+  '/wahlkampf-planer': WahlkampfPlaner,
+  '/micro-targeting': MicroTargeting,
+  '/zitat-datenbank': ZitatDatenbank,
+  '/projekte': Projekte,
+  '/kollegen-board': KollegenBoard,
+  '/morgenbriefing': Morgenbriefing,
+  '/admin': AdminDashboard,
 }
 
 export default function App() {

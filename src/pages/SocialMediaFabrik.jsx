@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Megaphone, Send, Copy, RefreshCw, Check } from 'lucide-react'
+import { Megaphone, Send, Copy, RefreshCw, Check, Clock, ChevronRight } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+
+const CAPTION_HISTORY_KEY = 'polaris_caption_history'
+function loadCaptionHistory() { try { return JSON.parse(localStorage.getItem(CAPTION_HISTORY_KEY)) || [] } catch { return [] } }
+function saveCaptionHistory(entry) {
+  const h = loadCaptionHistory()
+  localStorage.setItem(CAPTION_HISTORY_KEY, JSON.stringify([entry, ...h].slice(0, 5)))
+}
 
 const PLATTFORMEN = [
   { id: 'instagram', label: 'Instagram', maxChars: 2200, icon: '📸', hint: 'Emotional, visuell, Hashtags, persönlich' },
@@ -26,6 +33,8 @@ export default function SocialMediaFabrik() {
   const [ergebnis, setErgebnis] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [captionHistory, setCaptionHistory] = useState(loadCaptionHistory)
+  const [showHistory, setShowHistory] = useState(false)
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
   const plattformInfo = PLATTFORMEN.find(p => p.id === plattform)
@@ -71,7 +80,13 @@ Wichtig:
         }),
       })
       const data = await res.json()
-      setErgebnis(data.content?.[0]?.text || 'Fehler beim Generieren.')
+      const text = data.content?.[0]?.text || 'Fehler beim Generieren.'
+      setErgebnis(text)
+      if (text && !text.startsWith('Fehler')) {
+        const entry = { id: Date.now(), ts: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), plattform, thema: thema.slice(0, 50), text }
+        saveCaptionHistory(entry)
+        setCaptionHistory(loadCaptionHistory())
+      }
     } catch {
       setErgebnis('Verbindungsfehler. Bitte erneut versuchen.')
     }
@@ -91,7 +106,35 @@ Wichtig:
         description="KI-gestützte Erstellung von Posts, Pressemitteilungen und Texten für jeden Kanal."
         icon={Megaphone}
         color="#F97316"
-      />
+      >
+        {captionHistory.length > 0 && (
+          <button onClick={() => setShowHistory(s => !s)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: showHistory ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 8, padding: '0.5rem 0.875rem', color: '#F97316', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Clock size={11} /> Verlauf ({captionHistory.length})
+          </button>
+        )}
+      </PageHeader>
+
+      {/* Caption History */}
+      {showHistory && captionHistory.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ background: '#162230', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 14, padding: '1rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', overflowX: 'auto' }}>
+          {captionHistory.map(h => (
+            <div key={h.id} onClick={() => { setErgebnis(h.text); setShowHistory(false) }}
+              style={{ flexShrink: 0, width: 200, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 10, padding: '0.75rem', cursor: 'pointer', transition: 'background 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(249,115,22,0.07)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.375rem' }}>
+                <span style={{ fontSize: '0.5625rem', color: '#F97316', fontWeight: 700 }}>{PLATTFORMEN.find(p => p.id === h.plattform)?.icon} {h.plattform}</span>
+                <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.7)', marginLeft: 'auto' }}>{h.ts}</span>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>{h.thema}</p>
+              <p style={{ fontSize: '0.5625rem', color: 'rgba(255,166,0,0.6)', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><ChevronRight size={8} /> Wiederherstellen</p>
+            </div>
+          ))}
+        </motion.div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
 
@@ -100,7 +143,7 @@ Wichtig:
 
           {/* Plattform */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
-            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Kanal</p>
+            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Kanal</p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {PLATTFORMEN.map(p => (
                 <button key={p.id} onClick={() => setPlattform(p.id)} style={{
@@ -115,7 +158,7 @@ Wichtig:
               ))}
             </div>
             {plattformInfo && (
-              <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.25)', marginTop: '0.625rem', fontStyle: 'italic' }}>
+              <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.65)', marginTop: '0.625rem', fontStyle: 'italic' }}>
                 {plattformInfo.hint}
               </p>
             )}
@@ -123,7 +166,7 @@ Wichtig:
 
           {/* Tonalität */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
-            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Ton</p>
+            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Ton</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
               {TONE.map(t => (
                 <button key={t.id} onClick={() => setTone(t.id)} style={{
@@ -133,7 +176,7 @@ Wichtig:
                   borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
                 }}>
                   <p style={{ fontSize: '0.75rem', fontWeight: 700, color: tone === t.id ? '#F97316' : '#fff' }}>{t.label}</p>
-                  <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.3)', marginTop: '0.125rem' }}>{t.desc}</p>
+                  <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.125rem' }}>{t.desc}</p>
                 </button>
               ))}
             </div>
@@ -141,7 +184,7 @@ Wichtig:
 
           {/* Thema */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
-            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Thema / Anlass *</p>
+            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Thema / Anlass *</p>
             <textarea
               value={thema}
               onChange={e => setThema(e.target.value)}
@@ -151,7 +194,7 @@ Wichtig:
               onFocus={e => e.target.style.borderColor = 'rgba(249,115,22,0.4)'}
               onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
             />
-            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', margin: '0.75rem 0' }}>Zusätzlicher Kontext (optional)</p>
+            <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#ffa600', textTransform: 'uppercase', margin: '0.75rem 0' }}>Zusätzlicher Kontext (optional)</p>
             <textarea
               value={kontext}
               onChange={e => setKontext(e.target.value)}
@@ -164,7 +207,7 @@ Wichtig:
             <button
               onClick={generate}
               disabled={!thema.trim() || loading}
-              style={{ marginTop: '0.875rem', width: '100%', padding: '0.75rem', background: !thema.trim() || loading ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #F97316, #ea6800)', border: 'none', borderRadius: 10, color: !thema.trim() || loading ? 'rgba(255,255,255,0.3)' : '#fff', fontSize: '0.875rem', fontWeight: 700, cursor: !thema.trim() || loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.15s', boxShadow: !thema.trim() || loading ? 'none' : '0 4px 16px rgba(249,115,22,0.3)' }}
+              style={{ marginTop: '0.875rem', width: '100%', padding: '0.75rem', background: !thema.trim() || loading ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #F97316, #ea6800)', border: 'none', borderRadius: 10, color: !thema.trim() || loading ? 'rgba(255,255,255,0.7)' : '#fff', fontSize: '0.875rem', fontWeight: 700, cursor: !thema.trim() || loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.15s', boxShadow: !thema.trim() || loading ? 'none' : '0 4px 16px rgba(249,115,22,0.3)' }}
             >
               {loading
                 ? <><RefreshCw size={14} style={{ animation: 'spin 0.7s linear infinite' }} /> Generiere…</>
@@ -181,7 +224,7 @@ Wichtig:
               {plattformInfo?.icon} {plattformInfo?.label} · Entwurf
             </span>
             {ergebnis && (
-              <button onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: copied ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, padding: '0.25rem 0.625rem', color: copied ? '#22c55e' : 'rgba(255,255,255,0.5)', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+              <button onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: copied ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.5)'}`, borderRadius: 6, padding: '0.25rem 0.625rem', color: copied ? '#22c55e' : 'rgba(255,255,255,0.5)', fontSize: '0.6875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                 {copied ? <><Check size={11} /> Kopiert!</> : <><Copy size={11} /> Kopieren</>}
               </button>
             )}
@@ -189,7 +232,7 @@ Wichtig:
 
           <div style={{ flex: 1, padding: '1.25rem', overflowY: 'auto' }}>
             {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' }}>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {[0, 1, 2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#F97316', animation: `pulse-dot 1.2s ease ${i * 0.2}s infinite` }} />)}
                 </div>
@@ -204,7 +247,7 @@ Wichtig:
                 {ergebnis}
               </motion.div>
             ) : (
-              <div style={{ textAlign: 'center', paddingTop: '4rem', color: 'rgba(255,255,255,0.2)' }}>
+              <div style={{ textAlign: 'center', paddingTop: '4rem', color: 'rgba(255,255,255,0.55)' }}>
                 <Megaphone size={36} style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.3 }} />
                 <p style={{ fontSize: '0.875rem' }}>Thema eingeben und Post generieren.</p>
               </div>
@@ -213,12 +256,12 @@ Wichtig:
 
           {ergebnis && plattformInfo && (
             <div style={{ padding: '0.625rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.625rem', color: ergebnis.length > plattformInfo.maxChars ? '#ff4040' : 'rgba(255,255,255,0.25)' }}>
+              <span style={{ fontSize: '0.625rem', color: ergebnis.length > plattformInfo.maxChars ? '#ff4040' : 'rgba(255,255,255,0.65)' }}>
                 {ergebnis.length} / {plattformInfo.maxChars} Zeichen
               </span>
-              <button onClick={generate} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: '0.6875rem', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem', transition: 'color 0.15s' }}
+              <button onClick={generate} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '0.6875rem', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem', transition: 'color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.color = '#F97316'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>
                 <RefreshCw size={10} /> Neu generieren
               </button>
             </div>
