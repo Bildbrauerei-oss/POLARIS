@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import { useKampagne } from '../lib/kampagneContext'
+import { buildNarrativeContext } from '../lib/narrativeStore'
 
 const CLAUDE_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 const CONFIG_KEY = 'polaris_briefing_config'
@@ -382,7 +383,9 @@ export default function Morgenbriefing() {
       const wochentag = new Date().toLocaleDateString('de-DE', { weekday: 'long' })
 
       const kampagneInfo = aktiveKampagne ? `Aktive Kampagne: ${aktiveKampagne.kandidat}, ${aktiveKampagne.wahltyp} ${aktiveKampagne.ort} (${aktiveKampagne.partei}).` : ''
-      const prompt = `Du schreibst das POLARIS Morgenbriefing für bildbrauerei, eine politische Kampagnenagentur. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen. Keine Einleitung, sofort zum Punkt. ${kampagneInfo}
+      const narrativeKontext = aktiveKampagne ? buildNarrativeContext(aktiveKampagne.id) : ''
+      const narrativeBlock = narrativeKontext ? `\n\nNARRATIV-STRATEGIE DER KAMPAGNE:\n${narrativeKontext}\n\nWichtig: Bewerte die Pressemeldungen durch die Narrativ-Brille — welche Meldung stützt das Dach-Narrativ, welche greift es an, welche aktiviert ein Themen-Narrativ? Lass das in brennpunkte und empfehlung einfließen.` : ''
+      const prompt = `Du schreibst das POLARIS Morgenbriefing für bildbrauerei, eine politische Kampagnenagentur. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen. Keine Einleitung, sofort zum Punkt. ${kampagneInfo}${narrativeBlock}
 
 HEUTE: ${wochentag}, ${today}. Aktuell ist es ${time} Uhr (${tageszeit}).
 

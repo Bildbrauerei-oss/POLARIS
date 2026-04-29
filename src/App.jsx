@@ -13,6 +13,7 @@ import ThemenCockpit from './pages/ThemenCockpit'
 import SocialMediaFabrik from './pages/SocialMediaFabrik'
 import WahlrechtAssistent from './pages/WahlrechtAssistent'
 import NarrativDetektor from './pages/NarrativDetektor'
+import NarrativBoard from './pages/NarrativBoard'
 import ThemenFruehwarnsystem from './pages/ThemenFruehwarnsystem'
 import GeburtstagRadar from './pages/GeburtstagRadar'
 import WahlkampfPlaner from './pages/WahlkampfPlaner'
@@ -35,6 +36,7 @@ const CUSTOM_PAGES = {
   '/social-media-fabrik': SocialMediaFabrik,
   '/wahlrecht-assistent': WahlrechtAssistent,
   '/narrativ-detektor': NarrativDetektor,
+  '/narrativ-board': NarrativBoard,
   '/themen-fruehwarnsystem': ThemenFruehwarnsystem,
   '/geburtstags-radar': GeburtstagRadar,
   '/wahlkampf-planer': WahlkampfPlaner,

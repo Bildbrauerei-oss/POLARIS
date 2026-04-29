@@ -6,6 +6,7 @@ import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { NAV_GROUPS } from '../nav'
 import { GROUP_COLORS, isUrgent } from '../lib/utils'
 import { useKampagne } from '../lib/kampagneContext'
+import { buildNarrativeContext } from '../lib/narrativeStore'
 import {
   RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
@@ -225,6 +226,7 @@ function PolarisChat({ articles = [] }) {
     setLoading(true)
 
     const kampagnenListe = kampagnen.map(k => `${k.kandidat} ${k.wahltyp} ${k.ort}${k.wahldatum ? ' ' + new Date(k.wahldatum).toLocaleDateString('de-DE') : ''} (${k.partei})`).join(', ')
+    const narrativeKontext = aktiveKampagne ? buildNarrativeContext(aktiveKampagne.id) : ''
     const system = `Du bist POLARIS, das politische Gehirn von Bildbrauerei.
 
 Deine Rolle:
@@ -237,7 +239,7 @@ Deine Rolle:
 
 Aktive Kampagne: ${aktiveKampagne?.kandidat}, ${aktiveKampagne?.wahltyp} ${aktiveKampagne?.ort}${aktiveKampagne?.wahldatum ? ', ' + new Date(aktiveKampagne.wahldatum).toLocaleDateString('de-DE') : ''} (${aktiveKampagne?.partei}).
 Alle bildbrauerei-Kampagnen: ${kampagnenListe}.
-
+${narrativeKontext ? `\nNarrativ-Strategie der Kampagne:\n${narrativeKontext}\nNutze diese Narrative als Linse für deine Analysen — bewerte Ereignisse danach, ob sie das Dach-Narrativ stützen, angreifen oder ein Themen-Narrativ aktivieren.\n` : ''}
 ${buildContext()}
 
 Nutze diesen Feed aktiv für deine Antworten. Zitiere relevante Artikel mit Nummer, wenn sie deine Analyse stützen.`

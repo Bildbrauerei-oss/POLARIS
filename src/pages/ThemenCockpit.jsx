@@ -1,8 +1,17 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useArticles } from '../hooks/useArticles'
-import { Target, TrendingUp, TrendingDown, Minus, ExternalLink, ChevronDown, ChevronUp, Plus, X, MapPin, Settings, Radio, RefreshCw } from 'lucide-react'
+import { Target, TrendingUp, TrendingDown, Minus, ExternalLink, ChevronDown, ChevronUp, Plus, X, MapPin, Settings, Radio, RefreshCw, Bookmark } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
+import { getThemenNarrative, getDachNarrativ } from '../lib/narrativeStore'
+
+// Mapping: ThemenCockpit topic-key → narrative themenfeld id (NarrativBoard)
+const THEMA_TO_THEMENFELD = {
+  wirtschaft: 'wirtschaft',
+  sicherheit: 'sicherheit',
+  energie: 'umwelt',
+}
 
 const COLOR = '#ffa600'
 
@@ -106,7 +115,7 @@ function ScoreBar({ pos, neg, total }) {
   )
 }
 
-function ThemaCard({ thema, articles, index }) {
+function ThemaCard({ thema, articles, index, narrativeMatches = [] }) {
   const [expanded, setExpanded] = useState(false)
   const matched = articles.filter(a => matchThema(a, thema))
   if (matched.length === 0) return null
@@ -132,6 +141,11 @@ function ThemaCard({ thema, articles, index }) {
             <span style={{ fontSize: '0.5625rem', fontWeight: 700, background: `${thema.color}18`, color: thema.color, border: `1px solid ${thema.color}30`, padding: '0.1rem 0.4rem', borderRadius: 4 }}>
               {matched.length} Artikel
             </span>
+            {narrativeMatches.length > 0 && (
+              <span title={narrativeMatches.map(n => n.titel).join(' · ')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.5625rem', fontWeight: 700, background: 'rgba(168,85,247,0.12)', color: '#A855F7', border: '1px solid rgba(168,85,247,0.3)', padding: '0.1rem 0.4rem', borderRadius: 4 }}>
+                <Bookmark size={9} /> {narrativeMatches.length} Narrativ
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
             <span style={{ fontSize: '0.625rem', color: '#22c55e', fontWeight: 600 }}>↑ {pos}</span>
@@ -247,6 +261,9 @@ function LokallistePanel({ articles }) {
 
 export default function ThemenCockpit() {
   const { articles, loading } = useArticles({ limit: 500 })
+  const { aktiveKampagne } = useKampagne()
+  const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
+  const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id).filter(n => n.status === 'aktiv') : []
   const [regionen] = useState(loadRegionen)
   const [activeRegionId, setActiveRegionId] = useState('gesamt')
   const [liveArticles, setLiveArticles] = useState([])
@@ -326,6 +343,16 @@ export default function ThemenCockpit() {
         </span>
       </div>
 
+      {/* Narrativ-Banner */}
+      {dachNarrativ && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 1rem', marginBottom: '1rem', background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10 }}>
+          <Bookmark size={13} color="#A855F7" />
+          <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#A855F7', textTransform: 'uppercase' }}>Dach-Narrativ</span>
+          <span style={{ fontSize: '0.8125rem', color: '#fff', fontWeight: 600 }}>{dachNarrativ.titel}</span>
+          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginLeft: 'auto', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>{dachNarrativ.kernbotschaft}</span>
+        </div>
+      )}
+
       {/* Live Scan Status Bar */}
       {activeRegion.id !== 'gesamt' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', padding: '0.625rem 1rem', background: liveLoading ? 'rgba(82,183,193,0.08)' : liveError ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)', border: `1px solid ${liveLoading ? 'rgba(82,183,193,0.2)' : liveError ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`, borderRadius: 10 }}>
@@ -399,9 +426,11 @@ export default function ThemenCockpit() {
 
             {/* Themen-Liste */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {themenMitCount.map((t, i) => (
-                <ThemaCard key={t.key} thema={t} articles={regionArticles} index={i} />
-              ))}
+              {themenMitCount.map((t, i) => {
+                const fieldId = THEMA_TO_THEMENFELD[t.key]
+                const matches = fieldId ? themenNarrative.filter(n => n.themenfeld === fieldId) : []
+                return <ThemaCard key={t.key} thema={t} articles={regionArticles} index={i} narrativeMatches={matches} />
+              })}
             </div>
 
             {/* Lokallisten */}

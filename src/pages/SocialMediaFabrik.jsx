@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Megaphone, Send, Copy, RefreshCw, Check, Clock, ChevronRight } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
 import { useKampagne } from '../lib/kampagneContext'
+import { getDachNarrativ, getThemenNarrative, buildNarrativeContext } from '../lib/narrativeStore'
 
 const CAPTION_HISTORY_KEY = 'polaris_caption_history'
 function loadCaptionHistory() { try { return JSON.parse(localStorage.getItem(CAPTION_HISTORY_KEY)) || [] } catch { return [] } }
@@ -39,9 +40,14 @@ export default function SocialMediaFabrik() {
   const [copied, setCopied] = useState(false)
   const [captionHistory, setCaptionHistory] = useState(loadCaptionHistory)
   const [showHistory, setShowHistory] = useState(false)
+  const [narrativId, setNarrativId] = useState('')
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
-  useEffect(() => { if (aktiveKampagne) { setKandidat(aktiveKampagne.kandidat); setOrt(aktiveKampagne.ort) } }, [aktiveKampagne?.id])
+  useEffect(() => { if (aktiveKampagne) { setKandidat(aktiveKampagne.kandidat); setOrt(aktiveKampagne.ort); setNarrativId('') } }, [aktiveKampagne?.id])
+
+  const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
+  const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id) : []
+  const gewaehltesNarrativ = narrativId === 'dach' ? dachNarrativ : themenNarrative.find(n => n.id === narrativId) || null
 
   const plattformInfo = PLATTFORMEN.find(p => p.id === plattform)
   const toneInfo = TONE.find(t => t.id === tone)
@@ -51,13 +57,18 @@ export default function SocialMediaFabrik() {
     setLoading(true)
     setErgebnis('')
 
+    const narrativeKontext = aktiveKampagne ? buildNarrativeContext(aktiveKampagne.id) : ''
+    const narrativAnker = gewaehltesNarrativ
+      ? `\n\nDieser Post MUSS auf folgendem Narrativ aufbauen:\nTitel: "${gewaehltesNarrativ.titel}"\nKernbotschaft: ${gewaehltesNarrativ.kernbotschaft}${gewaehltesNarrativ.lokaler_bezug ? `\nLokaler Bezug: ${gewaehltesNarrativ.lokaler_bezug}` : ''}${gewaehltesNarrativ.zielgruppe_milieu ? `\nZielgruppe: ${gewaehltesNarrativ.zielgruppe_milieu}${gewaehltesNarrativ.zielgruppe_alter ? `, ${gewaehltesNarrativ.zielgruppe_alter}` : ''}` : ''}\nDer Post soll dieses Narrativ stützen — Tonalität, Wortwahl und Bilder müssen dazu passen.`
+      : narrativeKontext ? `\n\nKampagnen-Narrative (Hintergrund, nicht zwingend):\n${narrativeKontext}` : ''
+
     const system = `Du bist ein erfahrener politischer Social-Media-Stratege für die CDU. Dein Mandant ist ${kandidat}, Kandidat für die OB-Wahl in ${ort} (September 2026), parteilos mit CDU-Unterstützung.
 
 Deine Aufgabe: Schreibe exzellente Social-Media-Posts und Pressemitteilungen, die Menschen bewegen.
 
 Stil: ${toneInfo?.label} — ${toneInfo?.desc}
 Plattform: ${plattformInfo?.label} (${plattformInfo?.hint})
-Max. Zeichen: ${plattformInfo?.maxChars}
+Max. Zeichen: ${plattformInfo?.maxChars}${narrativAnker}
 
 Wichtig:
 - Keine leeren Politikfloskeln
@@ -202,6 +213,37 @@ Wichtig:
               ))}
             </div>
           </div>
+
+          {/* Narrativ-Anker */}
+          {(dachNarrativ || themenNarrative.length > 0) && (
+            <div style={{ background: '#162230', border: '1px solid rgba(168,85,247,0.18)', borderRadius: 14, padding: '1.25rem' }}>
+              <p style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#A855F7', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Basiert auf Narrativ</p>
+              <select
+                value={narrativId}
+                onChange={e => setNarrativId(e.target.value)}
+                style={{ width: '100%', background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#fff', fontSize: '0.8125rem', fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="" style={{ background: '#162230' }}>— Kein spezifisches Narrativ —</option>
+                {dachNarrativ && (
+                  <option value="dach" style={{ background: '#162230' }}>★ Dach: {dachNarrativ.titel}</option>
+                )}
+                {themenNarrative.length > 0 && (
+                  <optgroup label="Themen-Narrative" style={{ background: '#162230' }}>
+                    {themenNarrative.map(n => (
+                      <option key={n.id} value={n.id} style={{ background: '#162230' }}>
+                        {n.themenfeld ? `[${n.themenfeld}] ` : ''}{n.titel} {n.status === 'entwurf' ? '(Entwurf)' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {gewaehltesNarrativ && (
+                <p style={{ fontSize: '0.6875rem', color: 'rgba(168,85,247,0.85)', marginTop: '0.625rem', lineHeight: 1.5, fontStyle: 'italic' }}>
+                  „{gewaehltesNarrativ.kernbotschaft}"
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Thema */}
           <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>

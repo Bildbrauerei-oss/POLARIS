@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, BarChart2, Newspaper, Shield, Target,
-  Search, Bell, Compass, Gift,
+  Search, Bell, Compass, Gift, Bookmark,
   Clock, Crosshair,
   Megaphone, MessageCircle,
   Folder, Users,
@@ -24,6 +24,7 @@ export const NAV_GROUPS = [
     id: 'intelligence',
     label: 'INTELLIGENCE',
     items: [
+      { path: '/narrativ-board', label: 'Narrativ-Board', icon: Bookmark, desc: 'Dach- und Themen-Narrative — zentrales Rückgrat der Kampagne.' },
       { path: '/narrativ-detektor', label: 'Narrativ-Detektor', icon: Search, desc: 'Erkennung und Analyse politischer Narrative.' },
       { path: '/themen-fruehwarnsystem', label: 'Themen-Frühwarnsystem', icon: Bell, desc: 'Frühzeitige Erkennung neuer politischer Themen.' },
       { path: '/stimmungskompass', label: 'Stimmungskompass', icon: Compass, desc: 'Live-Monitoring der politischen Stimmung.' },

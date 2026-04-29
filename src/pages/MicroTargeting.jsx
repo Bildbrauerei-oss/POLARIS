@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Crosshair, Zap, RefreshCw, Users, ChevronRight, Target, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Crosshair, Zap, RefreshCw, Users, ChevronRight, Target, AlertTriangle, CheckCircle, Bookmark } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
+import { getDachNarrativ, getThemenNarrative } from '../lib/narrativeStore'
 
 const COLOR = '#ffa600'
 
@@ -146,14 +148,18 @@ const affinitätColor = (a) => {
 }
 
 export default function MicroTargeting() {
+  const { aktiveKampagne } = useKampagne()
   const [selected, setSelected] = useState(null)
-  const [kandidat, setKandidat] = useState('Jürgen Roth')
-  const [ort, setOrt] = useState('Villingen-Schwenningen')
+  const [kandidat, setKandidat] = useState(() => aktiveKampagne?.kandidat || 'Jürgen Roth')
+  const [ort, setOrt] = useState(() => aktiveKampagne?.ort || 'Villingen-Schwenningen')
   const [thema, setThema] = useState('')
   const [botschaft, setBotschaft] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+  const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
+  const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id) : []
 
   const milieu = MILIEUS.find(m => m.key === selected)
 
@@ -169,6 +175,11 @@ export default function MicroTargeting() {
     setBotschaft('')
     setError('')
 
+    const milieuNarrative = themenNarrative.filter(n => n.zielgruppe_milieu === milieu.label && n.status !== 'archiv')
+    const narrativBlock = (dachNarrativ || milieuNarrative.length > 0)
+      ? `\nNARRATIV-RAHMEN DER KAMPAGNE:${dachNarrativ ? `\n- Dach-Narrativ: "${dachNarrativ.titel}" — ${dachNarrativ.kernbotschaft}` : ''}${milieuNarrative.map(n => `\n- Themen-Narrativ (${n.themenfeld || 'allgemein'}): "${n.titel}" — ${n.kernbotschaft}${n.lokaler_bezug ? ` [Bezug: ${n.lokaler_bezug}]` : ''}`).join('')}\nDie Botschaften MÜSSEN auf diesen Narrativen aufbauen — nicht widersprechen, sondern sie in der Sprache des Milieus übersetzen.\n`
+      : ''
+
     const prompt = `Du bist POLARIS Micro-Targeting-Spezialist für die CDU Kampagne.
 
 Kandidat: ${kandidat}
@@ -181,7 +192,7 @@ Milieu-Profil:
 - Trigger-Frames: ${milieu.trigger}
 - Ansprache-Stil: ${milieu.ansprache}
 - VERMEIDEN: ${milieu.vermeiden}
-
+${narrativBlock}
 Kampagnenthema: ${thema.trim() || 'Allgemein – überzeugenden Wahlkampfauftritt'}
 
 Erstelle folgendes:
@@ -305,6 +316,25 @@ Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen.`
               </motion.div>
             ) : (
               <motion.div key={milieu.key} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+
+                {/* Narrative für dieses Milieu */}
+                {(() => {
+                  const matches = themenNarrative.filter(n => n.zielgruppe_milieu === milieu.label && n.status !== 'archiv')
+                  if (matches.length === 0) return null
+                  return (
+                    <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.22)', borderRadius: 12, padding: '0.875rem 1rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <Bookmark size={11} color="#A855F7" />
+                        <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#A855F7', textTransform: 'uppercase' }}>{matches.length} Narrativ{matches.length !== 1 ? 'e' : ''} für dieses Milieu</span>
+                      </div>
+                      {matches.map(n => (
+                        <div key={n.id} style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.8)', marginTop: '0.25rem', lineHeight: 1.5 }}>
+                          <strong style={{ color: '#A855F7' }}>{n.titel}</strong> — {n.kernbotschaft}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
 
                 {/* Milieu Detail Card */}
                 <div style={{ background: '#162230', border: `1px solid ${milieu.color}30`, borderTop: `3px solid ${milieu.color}`, borderRadius: 14, padding: '1.25rem', marginBottom: '1rem' }}>
