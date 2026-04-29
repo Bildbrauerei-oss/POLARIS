@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   Folder, Plus, Trash2, Edit2, Check, X, ChevronDown, ChevronUp, Circle, CheckCircle2,
   AlertCircle, Zap, RefreshCw, ArrowLeft, Newspaper, Target, BarChart2, Megaphone,
-  TrendingUp, Users, CalendarDays, FileText, UserCheck, Sun, Clock, MapPin, Tag
+  TrendingUp, Users, CalendarDays, FileText, UserCheck, Sun, Clock, MapPin, Tag,
+  ExternalLink
 } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { setHandoff } from '../lib/handoff'
 
 const COLOR = '#22C55E'
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
@@ -37,6 +40,16 @@ const HQ_MODULE = [
   { id: 'dokumente',   icon: FileText,     label: 'Dokumente',      color: '#64748B',  desc: 'Reden, Pressemitteilungen' },
   { id: 'team',        icon: UserCheck,    label: 'Team-Board',     color: '#EC4899',  desc: 'Helfer & Aufgaben' },
 ]
+
+// Module die zur echten POLARIS-Seite navigieren (statt inline mini-version)
+const MODULE_ROUTES = {
+  medien:      '/medien-monitor',
+  gegner:      '/gegner-analyse',
+  themen:      '/themen-cockpit',
+  social:      '/social-media-fabrik',
+  stimmung:    '/stimmungskompass',
+  zielgruppen: '/micro-targeting',
+}
 
 const EMPTY_P = { titel: '', beschreibung: '', kandidat: '', wahlaert: 'OB-Wahl', wahltag: '', wahlgebiet: '', status: 'planung', prioritaet: 'mittel' }
 
@@ -597,9 +610,25 @@ function ModulPlaceholder({ modul }) {
 }
 
 // ── Projekt-HQ ──────────────────────────────────────────────────────────────
-function ProjektHQ({ projekt, aufgaben, onBack, onToggleTask, onDeleteTask, onAddTask, taskForm, onTaskFormChange, onAIGenerate, aiLoading, aiResult, onAddAITasks }) {
+function ProjektHQ({ projekt, aufgaben, onBack, onToggleTask, onDeleteTask, onAddTask, taskForm, onTaskFormChange, onAIGenerate, aiLoading, aiResult, onAddAITasks, navigate }) {
   const [activeModule, setActiveModule] = useState('aufgaben')
   const mod = HQ_MODULE.find(m => m.id === activeModule)
+
+  function handleModuleClick(m) {
+    const route = MODULE_ROUTES[m.id]
+    if (route) {
+      // Kontext via Handoff übergeben damit die Zielseite den Kampagnenbezug kennt
+      setHandoff(m.id === 'social' ? 'social-media-fabrik' : m.id, {
+        projekt_titel: projekt.titel,
+        projekt_kandidat: projekt.kandidat,
+        projekt_wahlgebiet: projekt.wahlgebiet,
+        sourceLabel: `Projekt: ${projekt.titel}`,
+      })
+      navigate(route)
+    } else {
+      setActiveModule(m.id)
+    }
+  }
 
   const done = aufgaben.filter(t => t.erledigt).length
   const pct = aufgaben.length > 0 ? Math.round((done / aufgaben.length) * 100) : 0
@@ -659,24 +688,31 @@ function ProjektHQ({ projekt, aufgaben, onBack, onToggleTask, onDeleteTask, onAd
 
       {/* Modul-Navigation */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem', marginBottom: '1.25rem' }}>
-        {HQ_MODULE.map(m => (
-          <button key={m.id} onClick={() => setActiveModule(m.id)} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem',
-            padding: '0.75rem 0.5rem',
-            background: activeModule === m.id ? `${m.color}15` : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${activeModule === m.id ? m.color + '40' : 'rgba(255,255,255,0.07)'}`,
-            borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
-          }}
-            onMouseEnter={e => { if (activeModule !== m.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-            onMouseLeave={e => { if (activeModule !== m.id) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}>
-            <div style={{ width: 32, height: 32, background: `${m.color}15`, border: `1px solid ${m.color}25`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <m.icon size={15} color={activeModule === m.id ? m.color : `${m.color}80`} />
-            </div>
-            <span style={{ fontSize: '0.5625rem', fontWeight: activeModule === m.id ? 700 : 500, color: activeModule === m.id ? m.color : 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 1.3 }}>
-              {m.label}
-            </span>
-          </button>
-        ))}
+        {HQ_MODULE.map(m => {
+          const hasRoute = !!MODULE_ROUTES[m.id]
+          const isActive = activeModule === m.id && !hasRoute
+          return (
+            <button key={m.id} onClick={() => handleModuleClick(m)} title={hasRoute ? `→ ${m.label} öffnen` : m.label} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.375rem',
+              padding: '0.75rem 0.5rem', position: 'relative',
+              background: isActive ? `${m.color}15` : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${isActive ? m.color + '40' : 'rgba(255,255,255,0.07)'}`,
+              borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s',
+            }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = `${m.color}10` }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}>
+              {hasRoute && (
+                <ExternalLink size={9} color={`${m.color}80`} style={{ position: 'absolute', top: 6, right: 7 }} />
+              )}
+              <div style={{ width: 32, height: 32, background: `${m.color}15`, border: `1px solid ${m.color}25`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <m.icon size={15} color={isActive ? m.color : `${m.color}80`} />
+              </div>
+              <span style={{ fontSize: '0.5625rem', fontWeight: isActive ? 700 : 500, color: isActive ? m.color : 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 1.3 }}>
+                {m.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Aktives Modul */}
@@ -705,6 +741,7 @@ function ProjektHQ({ projekt, aufgaben, onBack, onToggleTask, onDeleteTask, onAd
 
 // ── Hauptkomponente ──────────────────────────────────────────────────────────
 export default function Projekte() {
+  const navigate = useNavigate()
   const [projekte, setProjekte] = useState([])
   const [aufgaben, setAufgaben] = useState({})
   const [loading, setLoading] = useState(true)
@@ -866,6 +903,7 @@ Nur die Aufgaben als Liste, keine Erklärungen.`
         aiLoading={aiLoading === activeProject}
         onAIGenerate={() => generateAiPlan(activeProject)}
         onAddAITasks={() => addAiTasksToProject(activeProject)}
+        navigate={navigate}
       />
     )
   }

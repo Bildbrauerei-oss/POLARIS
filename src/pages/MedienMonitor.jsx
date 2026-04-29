@@ -408,7 +408,7 @@ const PAGE_SIZE = 20
 export default function MedienMonitor() {
   const navigate = useNavigate()
   const { aktiveKampagne } = useKampagne()
-  const { scope } = useScope()
+  const { scope, customRegion } = useScope()
   const [searchText, setSearchText] = useState('')
   const [selectedVips, setSelectedVips] = useState([])
   const [selectedListe, setSelectedListe] = useState(null)
@@ -456,7 +456,7 @@ export default function MedienMonitor() {
   }
 
   const displayArticlesRaw = vipMode ? filteredVipNews : articles
-  const displayScoped = useMemo(() => filterArticlesByScope(displayArticlesRaw, scope, aktiveKampagne), [displayArticlesRaw, scope, aktiveKampagne?.id])
+  const displayScoped = useMemo(() => filterArticlesByScope(displayArticlesRaw, scope, aktiveKampagne, customRegion), [displayArticlesRaw, scope, aktiveKampagne?.id, customRegion])
   const displayArticles = applyQuickFilter(displayScoped)
 
   function reactToArticle(a) {
@@ -502,7 +502,7 @@ export default function MedienMonitor() {
           </h1>
           <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.55)' }}>
             {activeFilter}
-            {scope !== 'bundesweit' && <span style={{ marginLeft: '0.5rem', color: '#52b7c1', fontWeight: 700 }}>· Scope: {getScopeLabel(scope, aktiveKampagne)}</span>}
+            {scope !== 'bundesweit' && <span style={{ marginLeft: '0.5rem', color: '#52b7c1', fontWeight: 700 }}>· Scope: {getScopeLabel(scope, aktiveKampagne, customRegion)}</span>}
             {quickFilter && <span style={{ marginLeft: '0.5rem', color: quickFilter === 'urgent' ? '#ff6b6b' : quickFilter === 'heute' ? '#ffa600' : quickFilter === 'cdu_neg' ? '#A855F7' : '#52b7c1', fontWeight: 700 }}>· Filter aktiv</span>}
             {' · '}{displayCount} Artikel
             {lastRun && <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>Sync: {lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}

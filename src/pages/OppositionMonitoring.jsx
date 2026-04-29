@@ -225,7 +225,7 @@ function OrtslisitenPanel() {
 export default function OppositionMonitoring() {
   const navigate = useNavigate()
   const { aktiveKampagne } = useKampagne()
-  const { scope } = useScope()
+  const { scope, customRegion } = useScope()
 
   const lokaleKandidaten = useMemo(() => {
     if (!aktiveKampagne) return []
@@ -290,7 +290,7 @@ export default function OppositionMonitoring() {
 
       <PageHeader
         title="Gegner-Analyse"
-        description={`Top 5 Presseartikel pro Gegner — live aus Google News.${scope !== 'bundesweit' ? ' · Scope: ' + getScopeLabel(scope, aktiveKampagne) : ''}`}
+        description={`Top 5 Presseartikel pro Gegner — live aus Google News.${scope !== 'bundesweit' ? ' · Scope: ' + getScopeLabel(scope, aktiveKampagne, customRegion) : ''}`}
         icon={Monitor}
         color="#A855F7"
       >
