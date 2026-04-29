@@ -878,10 +878,6 @@ Nur die Aufgaben als Liste, keine Erklärungen.`
   return (
     <div style={{ width: '100%' }}>
       <PageHeader title="Projektordner" description="Kampagnen-Zentrale — jedes Projekt ein vollständiges Kampagnen-HQ." icon={Folder} color={COLOR}>
-        <button onClick={createRothProject} disabled={creatingRoth}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: 'rgba(255,166,0,0.1)', border: '1px solid rgba(255,166,0,0.3)', borderRadius: 8, padding: '0.5rem 0.875rem', cursor: creatingRoth ? 'wait' : 'pointer', color: '#ffa600', fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit' }}>
-          <Zap size={11} /> {creatingRoth ? 'Erstelle…' : '+ Jugendrot anlegen'}
-        </button>
         <button onClick={() => { setShowForm(true); setEditId(null); setPForm(EMPTY_P) }}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: `${COLOR}18`, border: `1px solid ${COLOR}35`, borderRadius: 10, padding: '0.625rem 1.125rem', cursor: 'pointer', color: COLOR, fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'inherit' }}>
           <Plus size={13} /> Projekt
