@@ -1,12 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { supabase } from '../lib/supabase'
 import { isUrgent } from '../lib/utils'
+import { useKampagne } from '../lib/kampagneContext'
+import { useScope, filterArticlesByScope, getScopeLabel } from '../lib/scopeContext'
+import { setHandoff } from '../lib/handoff'
+import ScopeBar from '../components/ScopeBar'
 import {
   Newspaper, RefreshCw, ExternalLink, AlertTriangle, Clock,
-  User, Plus, X, ChevronDown, ChevronUp, Star, Search
+  User, Plus, X, ChevronDown, ChevronUp, Star, Search, Send
 } from 'lucide-react'
 
 const VIP_STORAGE_KEY = 'polaris_vip_liste'
@@ -66,7 +71,7 @@ function formatDate(d, full = false) {
   } catch { return '—' }
 }
 
-function ArticleCard({ a, i, showFullDate = false }) {
+function ArticleCard({ a, i, showFullDate = false, onReact }) {
   const ss = sentimentStyle(a.sentiment)
   const cw = cduWirkungStyle(a.cdu_wirkung)
   const urgent = isUrgent(a)
@@ -136,15 +141,24 @@ function ArticleCard({ a, i, showFullDate = false }) {
             )}
           </div>
         </div>
-        {a.url && (
-          <a href={a.url} target="_blank" rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{ color: 'rgba(255,255,255,0.12)', flexShrink: 0, transition: 'color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#52b7c1'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}>
-            <ExternalLink size={13} />
-          </a>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0, alignItems: 'flex-end' }}>
+          {a.url && (
+            <a href={a.url} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ color: 'rgba(255,255,255,0.12)', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#52b7c1'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.12)'}>
+              <ExternalLink size={13} />
+            </a>
+          )}
+          {onReact && (
+            <button onClick={e => { e.stopPropagation(); onReact(a) }}
+              title="In Social Media Fabrik reagieren"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(249,115,22,0.1)', color: '#F97316', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.625rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Send size={9} /> Reagieren
+            </button>
+          )}
+        </div>
       </div>
     </motion.div>
   )
@@ -392,6 +406,9 @@ async function fetchVipNewsMulti(names) {
 const PAGE_SIZE = 20
 
 export default function MedienMonitor() {
+  const navigate = useNavigate()
+  const { aktiveKampagne } = useKampagne()
+  const { scope } = useScope()
   const [searchText, setSearchText] = useState('')
   const [selectedVips, setSelectedVips] = useState([])
   const [selectedListe, setSelectedListe] = useState(null)
@@ -439,7 +456,17 @@ export default function MedienMonitor() {
   }
 
   const displayArticlesRaw = vipMode ? filteredVipNews : articles
-  const displayArticles = applyQuickFilter(displayArticlesRaw)
+  const displayScoped = useMemo(() => filterArticlesByScope(displayArticlesRaw, scope, aktiveKampagne), [displayArticlesRaw, scope, aktiveKampagne?.id])
+  const displayArticles = applyQuickFilter(displayScoped)
+
+  function reactToArticle(a) {
+    setHandoff('social-media-fabrik', {
+      thema: `Reaktion auf: ${a.titel || ''}`.trim(),
+      kontext: `Artikel: "${a.titel || ''}"\nQuelle: ${a.quelle || ''}\n${a.zusammenfassung ? 'Inhalt: ' + a.zusammenfassung : ''}\n${a.url ? 'Link: ' + a.url : ''}`.trim(),
+      sourceLabel: 'Medien-Monitor',
+    })
+    navigate('/social-media-fabrik')
+  }
   const displayLoading = vipMode ? vipLoading : loading
   const displayCount = displayArticles.length
 
@@ -466,6 +493,7 @@ export default function MedienMonitor() {
 
   return (
     <div style={{ width: '100%' }}>
+      <ScopeBar />
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
@@ -474,6 +502,7 @@ export default function MedienMonitor() {
           </h1>
           <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.55)' }}>
             {activeFilter}
+            {scope !== 'bundesweit' && <span style={{ marginLeft: '0.5rem', color: '#52b7c1', fontWeight: 700 }}>· Scope: {getScopeLabel(scope, aktiveKampagne)}</span>}
             {quickFilter && <span style={{ marginLeft: '0.5rem', color: quickFilter === 'urgent' ? '#ff6b6b' : quickFilter === 'heute' ? '#ffa600' : quickFilter === 'cdu_neg' ? '#A855F7' : '#52b7c1', fontWeight: 700 }}>· Filter aktiv</span>}
             {' · '}{displayCount} Artikel
             {lastRun && <span style={{ marginLeft: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>Sync: {lastRun.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
@@ -590,7 +619,7 @@ export default function MedienMonitor() {
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                {pagedArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} showFullDate={vipMode} />)}
+                {pagedArticles.map((a, i) => <ArticleCard key={a.id} a={a} i={i} showFullDate={vipMode} onReact={reactToArticle} />)}
               </div>
 
               {/* Pagination */}

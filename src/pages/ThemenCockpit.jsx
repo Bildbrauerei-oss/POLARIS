@@ -313,6 +313,15 @@ export default function ThemenCockpit() {
     [regionArticles]
   )
 
+  // Bundesthemen (immer alle Artikel, nie regional gefiltert) — als Vergleich
+  const bundesThemenMitCount = useMemo(() =>
+    THEMEN.map(t => ({ ...t, count: articles.filter(a => matchThema(a, t)).length }))
+      .sort((a, b) => b.count - a.count),
+    [articles]
+  )
+
+  const isLokalView = activeRegion.id !== 'gesamt'
+
   return (
     <div style={{ width: '100%' }}>
       <PageHeader
@@ -397,10 +406,12 @@ export default function ThemenCockpit() {
         <AnimatePresence mode="wait">
           <motion.div key={activeRegionId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
 
-            {/* Region Badge */}
+            {/* Section Header — Lokale Themen */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
               <span style={{ fontSize: '1rem' }}>{activeRegion.icon}</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: activeRegion.farbe }}>{activeRegion.name}</span>
+              <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: activeRegion.farbe, textTransform: 'uppercase' }}>
+                {isLokalView ? `Lokale Themen — ${activeRegion.name}` : 'Themen bundesweit'}
+              </span>
               <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)' }}>· {regionArticles.length} Artikel</span>
               {liveArticles.length > 0 && <span style={{ fontSize: '0.6875rem', color: '#22c55e', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '0.1rem 0.4rem' }}>⚡ {liveArticles.length} live</span>}
             </div>
@@ -432,6 +443,38 @@ export default function ThemenCockpit() {
                 return <ThemaCard key={t.key} thema={t} articles={regionArticles} index={i} narrativeMatches={matches} />
               })}
             </div>
+
+            {/* Bundesthemen-Vergleich (nur in Lokal-View) */}
+            {isLokalView && articles.length > 0 && (
+              <div style={{ marginTop: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
+                  <span style={{ fontSize: '0.875rem' }}>🇩🇪</span>
+                  <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>Bundesthemen — Vergleich</span>
+                  <span style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)' }}>Was bewegt Deutschland gerade · {articles.length} Artikel</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                  {bundesThemenMitCount.slice(0, 5).map(t => {
+                    const lokalCount = themenMitCount.find(l => l.key === t.key)?.count || 0
+                    const lokalRatio = articles.length > 0 ? (t.count / articles.length) : 0
+                    const regionRatio = regionArticles.length > 0 ? (lokalCount / regionArticles.length) : 0
+                    const overWeighted = regionRatio > lokalRatio * 1.4
+                    const underWeighted = regionRatio < lokalRatio * 0.6
+                    return (
+                      <div key={t.key} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderTop: `2px solid ${t.color}80`, borderRadius: 10, padding: '0.625rem 0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'Inter', fontWeight: 800, fontSize: '1.125rem', color: 'rgba(255,255,255,0.85)', letterSpacing: '-0.03em', lineHeight: 1 }}>{t.count}</div>
+                        <div style={{ fontSize: '0.5625rem', color: t.color, fontWeight: 700, marginTop: '0.25rem', lineHeight: 1.3, opacity: 0.85 }}>{t.label}</div>
+                        <div style={{ fontSize: '0.5rem', color: overWeighted ? '#22c55e' : underWeighted ? '#bf111b' : 'rgba(255,255,255,0.35)', fontWeight: 700, marginTop: '0.25rem', letterSpacing: '0.05em' }}>
+                          {overWeighted ? `↑ lokal stärker` : underWeighted ? `↓ lokal schwächer` : `≈ wie Bund`}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.35)', marginTop: '0.625rem', fontStyle: 'italic' }}>
+                  Vergleich: Anteil eines Themas an allen Artikeln in {activeRegion.name} vs. bundesweit. „Lokal stärker" = das Thema dominiert vor Ort mehr als in Deutschland insgesamt.
+                </p>
+              </div>
+            )}
 
             {/* Lokallisten */}
             <LokallistePanel articles={regionArticles} />

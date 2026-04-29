@@ -4,6 +4,7 @@ import { Megaphone, Send, Copy, RefreshCw, Check, Clock, ChevronRight } from 'lu
 import PageHeader from '../components/ui/PageHeader'
 import { useKampagne } from '../lib/kampagneContext'
 import { getDachNarrativ, getThemenNarrative, buildNarrativeContext } from '../lib/narrativeStore'
+import { consumeHandoff } from '../lib/handoff'
 
 const CAPTION_HISTORY_KEY = 'polaris_caption_history'
 function loadCaptionHistory() { try { return JSON.parse(localStorage.getItem(CAPTION_HISTORY_KEY)) || [] } catch { return [] } }
@@ -41,9 +42,23 @@ export default function SocialMediaFabrik() {
   const [captionHistory, setCaptionHistory] = useState(loadCaptionHistory)
   const [showHistory, setShowHistory] = useState(false)
   const [narrativId, setNarrativId] = useState('')
+  const [handoffSource, setHandoffSource] = useState('')
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
   useEffect(() => { if (aktiveKampagne) { setKandidat(aktiveKampagne.kandidat); setOrt(aktiveKampagne.ort); setNarrativId('') } }, [aktiveKampagne?.id])
+
+  // Handoff von anderen Modulen einlesen (Medien-Monitor, Gegner-Analyse, Narrativ-Board, Micro-Targeting)
+  useEffect(() => {
+    const h = consumeHandoff('social-media-fabrik')
+    if (!h) return
+    if (h.thema) setThema(h.thema)
+    if (h.kontext) setKontext(h.kontext)
+    if (h.plattform) setPlattform(h.plattform)
+    if (h.tone) setTone(h.tone)
+    if (h.mode === 'offensiv') setTone('angriffig')
+    if (h.narrativId) setNarrativId(h.narrativId)
+    if (h.sourceLabel) setHandoffSource(h.sourceLabel)
+  }, [])
 
   const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
   const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id) : []
@@ -124,6 +139,11 @@ Wichtig:
         icon={Megaphone}
         color="#F97316"
       >
+        {handoffSource && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', background: 'rgba(82,183,193,0.1)', border: '1px solid rgba(82,183,193,0.3)', borderRadius: 8, padding: '0.5rem 0.75rem', color: '#52b7c1', fontSize: '0.6875rem', fontWeight: 600 }}>
+            ← übernommen aus {handoffSource}
+          </span>
+        )}
         {captionHistory.length > 0 && (
           <button onClick={() => setShowHistory(s => !s)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: showHistory ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 8, padding: '0.5rem 0.875rem', color: '#F97316', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>

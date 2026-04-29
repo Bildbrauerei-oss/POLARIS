@@ -396,6 +396,16 @@ export default function StimmungsKompass() {
     return { pos, neg, neu, total, score, urgent }
   }, [regionArticles])
 
+  // Bundesscore: über alle Artikel (Vergleichsanker)
+  const bundStats = useMemo(() => {
+    if (!articles.length) return null
+    const pos = articles.filter(a => a.cdu_wirkung === 'positiv').length
+    const neg = articles.filter(a => a.cdu_wirkung === 'negativ').length
+    const total = articles.length
+    const score = total > 0 ? Math.round(((pos - neg) / total) * 100) : 0
+    return { score, total }
+  }, [articles])
+
   function handleSaveRegionen(newList) {
     setRegionen(newList)
     saveRegionen(newList)
@@ -452,13 +462,34 @@ export default function StimmungsKompass() {
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'start' }}>
               <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 style={{ background: '#162230', border: `1px solid ${scoreColor}30`, borderRadius: 20, padding: '2rem', textAlign: 'center', minWidth: 180 }}>
-                <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>CDU Score</div>
+                <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+                  {activeRegion.id === 'gesamt' ? 'CDU Score' : `${activeRegion.name} · CDU Score`}
+                </div>
                 <div style={{ fontFamily: 'Inter', fontWeight: 900, fontSize: '3.5rem', color: scoreColor, letterSpacing: '-0.05em', lineHeight: 1 }}>
                   {stats.score > 0 ? '+' : ''}{stats.score}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem' }}>
                   {stats.score > 20 ? 'Sehr positiv' : stats.score > 5 ? 'Leicht positiv' : stats.score < -20 ? 'Kritisch' : stats.score < -5 ? 'Leicht negativ' : 'Ausgeglichen'}
                 </div>
+                {/* Bundesscore-Vergleich (nur wenn nicht Gesamt) */}
+                {activeRegion.id !== 'gesamt' && bundStats && (() => {
+                  const bundColor = bundStats.score > 10 ? '#22c55e' : bundStats.score < -10 ? '#bf111b' : '#ffa600'
+                  const delta = stats.score - bundStats.score
+                  const deltaColor = delta > 0 ? '#22c55e' : delta < 0 ? '#bf111b' : 'rgba(255,255,255,0.4)'
+                  return (
+                    <div style={{ marginTop: '1rem', paddingTop: '0.875rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>Bund</span>
+                        <span style={{ fontFamily: 'Inter', fontWeight: 800, fontSize: '1rem', color: bundColor, letterSpacing: '-0.02em' }}>
+                          {bundStats.score > 0 ? '+' : ''}{bundStats.score}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.5625rem', color: deltaColor, fontWeight: 700 }}>
+                        {delta > 0 ? `↑ ${delta} besser als Bund` : delta < 0 ? `↓ ${Math.abs(delta)} schlechter als Bund` : '= wie Bund'}
+                      </div>
+                    </div>
+                  )
+                })()}
               </motion.div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

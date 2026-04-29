@@ -1,11 +1,20 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Crosshair, Zap, RefreshCw, Users, ChevronRight, Target, AlertTriangle, CheckCircle, Bookmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Crosshair, Zap, RefreshCw, Users, ChevronRight, Target, AlertTriangle, CheckCircle, Bookmark, Send, MapPin, Calendar } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
-import { useKampagne } from '../lib/kampagneContext'
+import { useKampagne, loadKampagneDaten } from '../lib/kampagneContext'
 import { getDachNarrativ, getThemenNarrative } from '../lib/narrativeStore'
+import { setHandoff } from '../lib/handoff'
 
 const COLOR = '#ffa600'
+
+const ALTERSGRUPPEN = [
+  { key: '18-30', label: '18–30', sub: 'Junge Erwachsene' },
+  { key: '31-45', label: '31–45', sub: 'Etablierte' },
+  { key: '46-60', label: '46–60', sub: 'Mittleres Alter' },
+  { key: '60+',   label: '60+',   sub: 'Senioren' },
+]
 
 const MILIEUS = [
   {
@@ -148,11 +157,16 @@ const affinitätColor = (a) => {
 }
 
 export default function MicroTargeting() {
+  const navigate = useNavigate()
   const { aktiveKampagne } = useKampagne()
   const [selected, setSelected] = useState(null)
+  const [selectedAlter, setSelectedAlter] = useState(null)
   const [kandidat, setKandidat] = useState(() => aktiveKampagne?.kandidat || 'Jürgen Roth')
   const [ort, setOrt] = useState(() => aktiveKampagne?.ort || 'Villingen-Schwenningen')
   const [thema, setThema] = useState('')
+  // Gewichtung: 0–100 für Milieu↔Alter (50 = ausgeglichen), separat lokales-Thema-Gewicht 0–100
+  const [milieuVsAlter, setMilieuVsAlter] = useState(50)
+  const [lokalGewicht, setLokalGewicht] = useState(50)
   const [botschaft, setBotschaft] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -160,13 +174,52 @@ export default function MicroTargeting() {
 
   const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
   const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id) : []
+  const kampagneDaten = aktiveKampagne ? loadKampagneDaten()[aktiveKampagne.id] : null
 
   const milieu = MILIEUS.find(m => m.key === selected)
+  const alter = ALTERSGRUPPEN.find(a => a.key === selectedAlter)
 
   function selectMilieu(key) {
     setSelected(prev => prev === key ? null : key)
     setBotschaft('')
     setError('')
+  }
+
+  function selectAlter(key) {
+    setSelectedAlter(prev => prev === key ? null : key)
+    setBotschaft('')
+    setError('')
+  }
+
+  function gewichtLabel(v) {
+    if (v < 25) return 'stark Milieu'
+    if (v < 45) return 'eher Milieu'
+    if (v <= 55) return 'ausgeglichen'
+    if (v <= 75) return 'eher Alter'
+    return 'stark Alter'
+  }
+
+  function lokalLabel(v) {
+    if (v < 25) return 'gering'
+    if (v < 50) return 'mittel'
+    if (v < 75) return 'hoch'
+    return 'sehr hoch (Lokal-Fokus)'
+  }
+
+  function sendToSMF() {
+    if (!botschaft) return
+    const segmentParts = []
+    if (milieu) segmentParts.push(milieu.label)
+    if (alter) segmentParts.push(`${alter.label} (${alter.sub})`)
+    const segmentLabel = segmentParts.join(' · ')
+    const kontext = `Segment: ${segmentLabel}\nGewichtung: ${gewichtLabel(milieuVsAlter)} | Lokal-Bezug: ${lokalLabel(lokalGewicht)}\nOrt: ${ort}\n\n--- Generierte Botschaft ---\n${botschaft}`
+    setHandoff('social-media-fabrik', {
+      thema: thema.trim() || `Botschaft für ${segmentLabel}`,
+      kontext,
+      tone: milieu?.ansprache?.split('.')[0] || '',
+      sourceLabel: 'Micro-Targeting',
+    })
+    navigate('/social-media-fabrik')
   }
 
   async function generateBotschaft() {
@@ -180,6 +233,21 @@ export default function MicroTargeting() {
       ? `\nNARRATIV-RAHMEN DER KAMPAGNE:${dachNarrativ ? `\n- Dach-Narrativ: "${dachNarrativ.titel}" — ${dachNarrativ.kernbotschaft}` : ''}${milieuNarrative.map(n => `\n- Themen-Narrativ (${n.themenfeld || 'allgemein'}): "${n.titel}" — ${n.kernbotschaft}${n.lokaler_bezug ? ` [Bezug: ${n.lokaler_bezug}]` : ''}`).join('')}\nDie Botschaften MÜSSEN auf diesen Narrativen aufbauen — nicht widersprechen, sondern sie in der Sprache des Milieus übersetzen.\n`
       : ''
 
+    // Demografie / Stadtteile aus Kampagnen-Daten
+    const stadtteile = kampagneDaten?.demografie?.stadtteile || kampagneDaten?.stadtteile || null
+    const demoBlock = stadtteile
+      ? `\nLOKALE GEOGRAFIE / DEMOGRAFIE für ${ort}:\n${(Array.isArray(stadtteile) ? stadtteile : Object.entries(stadtteile)).slice(0, 12).map(s => typeof s === 'string' ? `- ${s}` : `- ${s[0]}: ${typeof s[1] === 'object' ? JSON.stringify(s[1]) : s[1]}`).join('\n')}\nNutze diese Stadtteile/Gebiete konkret bei der Empfehlung "Wo finde ich das Segment?".\n`
+      : `\nKein detailliertes Stadtteil-Profil hinterlegt — empfehle Stadtteile/Quartiere von ${ort} nach allgemeinem Wissen über die Stadt (Sozialstruktur, Wohnformen, typische Lebenswelten).\n`
+
+    const segmentBlock = alter
+      ? `\nSEGMENT (kombiniert Milieu + Alter):
+- Sinus-Milieu: ${milieu.label} (${milieu.anteil}, Ø ${milieu.alter})
+- Altersgruppe: ${alter.label} — ${alter.sub}
+- Gewichtung Milieu↔Alter: ${gewichtLabel(milieuVsAlter)} (${milieuVsAlter}/100 — 0=nur Milieu, 100=nur Alter)
+- Gewichtung Lokales Thema: ${lokalLabel(lokalGewicht)} (${lokalGewicht}/100)
+WICHTIG: Wenn das Alter sich vom Milieu-Durchschnitt (${milieu.alter}) unterscheidet, formuliere altersgerecht (Mediennutzung, Lebenslage, Sprache) — aber bleibe in der Werte-Welt des Milieus, sofern die Gewichtung nicht stark zu "Alter" tendiert.\n`
+      : `\nSEGMENT: nur Milieu (Altersgruppe nicht eingegrenzt)\n`
+
     const prompt = `Du bist POLARIS Micro-Targeting-Spezialist für die CDU Kampagne.
 
 Kandidat: ${kandidat}
@@ -192,10 +260,10 @@ Milieu-Profil:
 - Trigger-Frames: ${milieu.trigger}
 - Ansprache-Stil: ${milieu.ansprache}
 - VERMEIDEN: ${milieu.vermeiden}
-${narrativBlock}
+${segmentBlock}${narrativBlock}${demoBlock}
 Kampagnenthema: ${thema.trim() || 'Allgemein – überzeugenden Wahlkampfauftritt'}
 
-Erstelle folgendes:
+Erstelle folgendes — strukturiert mit den genannten Überschriften:
 
 **1. KERNBOTSCHAFT** (1–2 Sätze, max. 35 Wörter, Social-Media-tauglich)
 
@@ -206,9 +274,18 @@ Erstelle folgendes:
 
 **3. BILD-EMPFEHLUNG** (1 Satz: welche Motive, Farben, Atmosphäre)
 
-**4. KANAL-EMPFEHLUNG** (1 Satz: wo dieses Milieu am besten erreichbar ist)
+**4. KANAL-EMPFEHLUNG** (1 Satz: wo dieses Segment am besten erreichbar ist — konkrete Plattform/Format je nach Alter)
 
-Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen.`
+**5. WO FINDE ICH DIESES SEGMENT IN ${ort.toUpperCase()}?**
+Nenne 2–4 konkrete Stadtteile/Quartiere/Orte (Wohngebiete, Treffpunkte, Vereine, Cafés, Märkte) — erkläre kurz warum jeweils.
+
+**6. LOKALE THEMEN, DIE DIESES SEGMENT BEWEGEN**
+3 konkrete lokale Themen aus ${ort} (Verkehr, Wohnen, Vereine, Schulen, Freizeit, etc.) — keine Abstrakta.
+
+**7. EMPFOHLENE AKTIONSFORM**
+1 konkrete Aktionsform (z.B. Haustürwahlkampf in Stadtteil X, Infostand am Markt Y, Nachtaktion an Plakatwand Z, Vereinsabend, Hausbesuche bei Senioren-Treffpunkten, Social-Media-Reels) — mit kurzer Begründung warum genau diese für dieses Segment trifft.
+
+Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen. Lokal konkret.`
 
     if (!apiKey) {
       setError('API-Key fehlt (VITE_ANTHROPIC_API_KEY)')
@@ -382,6 +459,59 @@ Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen.`
                 <div style={{ background: '#162230', border: `1px solid ${COLOR}20`, borderRadius: 14, padding: '1.25rem' }}>
                   <p style={{ ...sectionLabel, marginBottom: '0.875rem' }}>KI-Botschaftsgenerator</p>
 
+                  {/* Altersgruppe */}
+                  <div style={{ marginBottom: '0.875rem' }}>
+                    <label style={labelStyle}>Altersgruppe verfeinern <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>(optional)</span></label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.375rem' }}>
+                      {ALTERSGRUPPEN.map(a => (
+                        <button
+                          key={a.key}
+                          onClick={() => selectAlter(a.key)}
+                          style={{
+                            background: selectedAlter === a.key ? `${COLOR}18` : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${selectedAlter === a.key ? COLOR : 'rgba(255,255,255,0.08)'}`,
+                            borderRadius: 8, padding: '0.5rem 0.5rem', cursor: 'pointer',
+                            fontFamily: 'inherit', textAlign: 'center', transition: 'all 0.15s',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: selectedAlter === a.key ? COLOR : 'rgba(255,255,255,0.85)' }}>{a.label}</div>
+                          <div style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>{a.sub}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Gewichtung */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem', marginBottom: '0.875rem' }}>
+                    <div>
+                      <label style={labelStyle}>Gewichtung Milieu ↔ Alter</label>
+                      <input
+                        type="range" min={0} max={100} value={milieuVsAlter}
+                        onChange={e => setMilieuVsAlter(Number(e.target.value))}
+                        disabled={!selectedAlter}
+                        style={{ width: '100%', accentColor: COLOR, opacity: selectedAlter ? 1 : 0.4 }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                        <span>Milieu</span>
+                        <span style={{ color: COLOR, fontWeight: 700 }}>{gewichtLabel(milieuVsAlter)}</span>
+                        <span>Alter</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Lokal-Bezug</label>
+                      <input
+                        type="range" min={0} max={100} value={lokalGewicht}
+                        onChange={e => setLokalGewicht(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: COLOR }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                        <span>gering</span>
+                        <span style={{ color: COLOR, fontWeight: 700 }}>{lokalLabel(lokalGewicht)}</span>
+                        <span>sehr hoch</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div style={{ marginBottom: '0.875rem' }}>
                     <label style={labelStyle}>Kampagnenthema / Anlass <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>(optional)</span></label>
                     <input
@@ -437,9 +567,28 @@ Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen.`
                   {/* Result */}
                   {botschaft && !generating && (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
-                        <CheckCircle size={13} color="#22c55e" />
-                        <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.1em', color: '#22c55e', textTransform: 'uppercase' }}>Botschaft generiert — {milieu.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle size={13} color="#22c55e" />
+                          <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.1em', color: '#22c55e', textTransform: 'uppercase' }}>
+                            Botschaft generiert — {milieu.label}{alter ? ` · ${alter.label}` : ''}
+                          </span>
+                        </div>
+                        <button
+                          onClick={sendToSMF}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            background: 'rgba(82,183,193,0.12)',
+                            border: '1px solid rgba(82,183,193,0.4)',
+                            color: '#52b7c1', fontSize: '0.6875rem', fontWeight: 700,
+                            borderRadius: 7, padding: '0.35rem 0.7rem', cursor: 'pointer',
+                            fontFamily: 'inherit',
+                          }}
+                          title="In Social-Media-Fabrik öffnen"
+                        >
+                          <Send size={11} />
+                          → Social-Media-Fabrik
+                        </button>
                       </div>
                       <div style={{ background: 'rgba(255,166,0,0.05)', border: '1px solid rgba(255,166,0,0.15)', borderRadius: 10, padding: '1rem' }}>
                         <p style={{ fontSize: '0.8125rem', color: '#E2E8F0', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{botschaft}</p>

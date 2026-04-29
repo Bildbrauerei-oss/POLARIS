@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BarChart2, TrendingUp, TrendingDown, RefreshCw, ChevronDown, ExternalLink, Newspaper, Zap, Minus, MapPin } from 'lucide-react'
+import { BarChart2, TrendingUp, TrendingDown, RefreshCw, ChevronDown, ExternalLink, Newspaper, Zap, Minus, MapPin, Building2, Landmark, Globe } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { useKampagne } from '../lib/kampagneContext'
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 
@@ -65,6 +66,71 @@ async function fetchUmfrageArtikel(bundesland) {
     })
     return items.slice(0, 12)
   } catch { return [] }
+}
+
+async function fetchKommunalArtikel(ort, wahltyp) {
+  const wahlBegriff = wahltyp?.toLowerCase().includes('ob') ? 'Oberbürgermeister OB-Wahl' : wahltyp?.toLowerCase().includes('bürgermeister') ? 'Bürgermeister' : 'Kommunalwahl Stadtrat'
+  const q = `"${ort}" Umfrage ${wahlBegriff}`
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}+when:180d&hl=de&gl=DE&ceid=DE:de`
+  try {
+    const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(12000) })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const doc = new DOMParser().parseFromString(xml, 'text/xml')
+    const items = []
+    doc.querySelectorAll('item').forEach(item => {
+      const title = item.querySelector('title')?.textContent?.trim()
+      const link = item.querySelector('link')?.textContent?.trim()
+      const pubDate = item.querySelector('pubDate')?.textContent?.trim()
+      const source = item.querySelector('source')?.textContent?.trim()
+      if (title) items.push({ title, link, pubDate, source })
+    })
+    return items.slice(0, 12)
+  } catch { return [] }
+}
+
+async function extractKommunalUmfrage(artikel, ort, kandidat) {
+  if (!API_KEY || !artikel.length) return null
+  const headlines = artikel.map((a, i) =>
+    `${i + 1}. ${a.title} (${a.source || ''}, ${a.pubDate ? new Date(a.pubDate).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }) : ''})`
+  ).join('\n')
+
+  const prompt = `Du analysierst Schlagzeilen über kommunale Wahlumfragen in ${ort}${kandidat ? ` (eigener Kandidat: ${kandidat})` : ''}.
+
+Schlagzeilen:
+${headlines}
+
+Extrahiere konkrete Umfragewerte (Prozentzahlen für Kandidaten oder Parteien) für ${ort}.
+Suche nach Kandidatennamen, Stichwahl-Prognosen, Bürgerumfragen.
+
+Antworte NUR mit JSON, keine Erklärung:
+{
+  "institut": "Institutsname oder Auftraggeber",
+  "datum": "TT.MM.JJJJ",
+  "quelle": "Medienquelle",
+  "typ": "kandidaten" oder "parteien",
+  "werte": { "Kandidat A": 35, "Kandidat B": 28, ... }
+}
+
+Falls keine konkreten Zahlen: { "fehler": "Keine kommunalen Umfragewerte in den Schlagzeilen gefunden." }`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: AbortSignal.timeout(20000),
+      headers: {
+        'x-api-key': API_KEY, 'anthropic-version': '2023-06-01',
+        'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 500, messages: [{ role: 'user', content: prompt }] }),
+    })
+    const data = await res.json()
+    let raw = (data.content?.[0]?.text || '').trim()
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    return JSON.parse(match[0])
+  } catch { return null }
 }
 
 // ── Claude: Umfragewerte aus Schlagzeilen extrahieren ────────────────────────
@@ -385,24 +451,234 @@ function BundeslandPanel({ kuerzel }) {
   )
 }
 
+// ── Kommunal-Umfrage-Panel ────────────────────────────────────────────────────
+function KommunalPanel({ ort, kandidat, wahltyp, wahldatum }) {
+  const [artikel, setArtikel] = useState([])
+  const [umfrage, setUmfrage] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function laden() {
+    if (!ort) return
+    setLoading(true); setArtikel([]); setUmfrage(null); setError('')
+    const arts = await fetchKommunalArtikel(ort, wahltyp)
+    setArtikel(arts)
+    setLoading(false)
+    if (arts.length > 0) {
+      setExtracting(true)
+      const result = await extractKommunalUmfrage(arts, ort, kandidat)
+      if (result?.fehler) setError(result.fehler)
+      else if (result?.werte) setUmfrage(result)
+      else setError('KI konnte keine konkreten Umfragewerte extrahieren.')
+      setExtracting(false)
+    } else {
+      setError(`Keine Umfrage-Artikel zu ${ort} in den letzten 180 Tagen gefunden. In kleineren Wahlkreisen sind kommunale Umfragen selten.`)
+    }
+  }
+
+  useEffect(() => { laden() }, [ort, kandidat, wahltyp])
+
+  if (!ort) {
+    return (
+      <div style={{ background: '#162230', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 14, padding: '3rem', textAlign: 'center' }}>
+        <Building2 size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: '0.75rem' }} />
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9375rem' }}>Keine aktive Kampagne mit Ort hinterlegt.</p>
+      </div>
+    )
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.2)', borderTop: '3px solid #52b7c1', borderRadius: 16, padding: '1.25rem 1.5rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.375rem' }}>
+              <Building2 size={16} color="#52b7c1" />
+              <h2 style={{ fontFamily: 'Inter', fontWeight: 900, fontSize: '1.25rem', color: '#fff', letterSpacing: '-0.02em' }}>{ort}</h2>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: '#C8DCF0' }}>
+              {wahltyp || 'Kommunalwahl'}{wahldatum && <> · <strong style={{ color: '#ffa600' }}>{new Date(wahldatum).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></>}
+              {kandidat && <> · Eigener Kandidat: <strong style={{ color: '#fff' }}>{kandidat}</strong></>}
+            </p>
+          </div>
+          <button onClick={laden} disabled={loading || extracting}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: 'rgba(82,183,193,0.1)', border: '1px solid rgba(82,183,193,0.25)', borderRadius: 8, padding: '0.5rem 0.875rem', color: '#52b7c1', fontSize: '0.75rem', fontWeight: 700, cursor: loading || extracting ? 'wait' : 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+            <RefreshCw size={11} style={{ animation: loading || extracting ? 'spin 0.8s linear infinite' : 'none' }} />
+            {loading ? 'Lade…' : extracting ? 'KI analysiert…' : 'Aktualisieren'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1rem' }}>
+        <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, padding: '1.25rem' }}>
+          <p style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.14em', color: '#52b7c1', textTransform: 'uppercase', marginBottom: '1rem' }}>
+            Aktuelle Umfrage · {ort}
+          </p>
+
+          {loading && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
+              <RefreshCw size={24} style={{ animation: 'spin 0.8s linear infinite', margin: '0 auto 0.75rem', display: 'block', opacity: 0.4 }} />
+              Suche kommunale Umfragen…
+            </div>
+          )}
+
+          {extracting && !loading && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
+              <Zap size={24} style={{ margin: '0 auto 0.75rem', display: 'block', color: '#52b7c1', opacity: 0.7 }} />
+              KI extrahiert Umfragewerte…
+            </div>
+          )}
+
+          {!loading && !extracting && error && (
+            <div style={{ padding: '1.5rem', background: 'rgba(255,166,0,0.05)', border: '1px solid rgba(255,166,0,0.15)', borderRadius: 10, textAlign: 'center' }}>
+              <p style={{ fontSize: '0.8125rem', color: '#ffa600', marginBottom: '0.5rem', fontWeight: 600 }}>Keine kommunalen Umfragewerte</p>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{error}</p>
+              <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.875rem', fontStyle: 'italic' }}>
+                Tipp: Nutze die Bundesland-Sonntagsfrage als Annäherung, oder eigene Befragungen über Door-to-Door-Daten / Microtargeting.
+              </p>
+            </div>
+          )}
+
+          {!loading && !extracting && umfrage && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                <div>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#fff' }}>{umfrage.institut}</p>
+                  <p style={{ fontSize: '0.6875rem', color: '#C8DCF0' }}>{umfrage.datum} · {umfrage.quelle}</p>
+                </div>
+                {umfrage.typ === 'kandidaten' && <span style={{ fontSize: '0.5625rem', fontWeight: 700, background: 'rgba(82,183,193,0.15)', color: '#52b7c1', border: '1px solid rgba(82,183,193,0.3)', borderRadius: 4, padding: '0.15rem 0.45rem' }}>KANDIDATEN-FRAGE</span>}
+              </div>
+              <BalkenDiagramm werte={umfrage.werte} highlightPartei={kandidat || 'CDU'} />
+              <p style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.875rem', fontStyle: 'italic' }}>
+                ⚠ KI-extrahiert aus Presseberichten — Werte verifizieren
+              </p>
+            </motion.div>
+          )}
+        </div>
+
+        <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.12)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Newspaper size={12} color="#52b7c1" />
+            <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.12em', color: '#52b7c1', textTransform: 'uppercase' }}>
+              Quellen · {artikel.length} Artikel
+            </span>
+          </div>
+          <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+            {loading ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.8125rem' }}>Wird geladen…</div>
+            ) : artikel.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.8125rem' }}>Keine Artikel gefunden</div>
+            ) : artikel.map((a, i) => (
+              <div key={i} style={{ padding: '0.625rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.8125rem', color: '#E2E8F0', lineHeight: 1.4, marginBottom: '0.2rem', fontWeight: 500 }}>{a.title}</p>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {a.source && <span style={{ fontSize: '0.5625rem', color: '#52b7c1', fontWeight: 700 }}>{a.source}</span>}
+                    {a.pubDate && <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.5)' }}>{new Date(a.pubDate).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}</span>}
+                  </div>
+                </div>
+                {a.link && (
+                  <a href={a.link} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'rgba(255,255,255,0.65)', flexShrink: 0, transition: 'color 0.1s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#52b7c1'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}>
+                    <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function UmfrageRadar() {
+  const { aktiveKampagne } = useKampagne()
   const [aktiv, setAktiv] = useState(0)
+  const [ebene, setEbene] = useState(aktiveKampagne?.ort ? 'kommunal' : 'bund') // kommunal | land | bund
   const [selectedBL, setSelectedBL] = useState(null)
   const aktuell = BUND_UMFRAGEN[aktiv]
   const durchschnitt = Math.round(BUND_UMFRAGEN.reduce((s, u) => s + u.werte.CDU, 0) / BUND_UMFRAGEN.length * 10) / 10
 
+  // Vorwahl Bundesland aus aktiver Kampagne, wenn auf 'land' gewechselt wird
+  useEffect(() => {
+    if (ebene === 'land' && !selectedBL && aktiveKampagne?.bundesland) {
+      const bl = BUNDESLAENDER.find(b => b.name === aktiveKampagne.bundesland)
+      if (bl) setSelectedBL(bl.kuerzel)
+    }
+  }, [ebene, aktiveKampagne?.bundesland])
+
   return (
     <div style={{ width: '100%' }}>
-      <PageHeader title="Umfrage-Radar" description="Aktuelle Sonntagsfragen Bund & Länder — live aus Presseberichten." icon={BarChart2} color="#ffa600">
-        <BundeslandDropdown selected={selectedBL} onChange={setSelectedBL} />
+      <PageHeader title="Umfrage-Radar" description="Sonntagsfragen Kommunal · Land · Bund — live aus Presseberichten." icon={BarChart2} color="#ffa600">
+        {ebene === 'land' && <BundeslandDropdown selected={selectedBL} onChange={setSelectedBL} />}
       </PageHeader>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-      {/* BUNDESLAND-ANSICHT */}
-      {selectedBL ? (
+      {/* Ebene-Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', background: '#162230', padding: 4, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
+        <button
+          onClick={() => setEbene('kommunal')}
+          disabled={!aktiveKampagne?.ort}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.5rem 0.875rem', borderRadius: 7, fontFamily: 'inherit',
+            fontSize: '0.75rem', fontWeight: 700, cursor: aktiveKampagne?.ort ? 'pointer' : 'not-allowed',
+            background: ebene === 'kommunal' ? 'rgba(82,183,193,0.15)' : 'transparent',
+            color: ebene === 'kommunal' ? '#52b7c1' : (aktiveKampagne?.ort ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.3)'),
+            border: ebene === 'kommunal' ? '1px solid rgba(82,183,193,0.4)' : '1px solid transparent',
+          }}
+        >
+          <Building2 size={12} /> Kommunal{aktiveKampagne?.ort && ` · ${aktiveKampagne.ort}`}
+        </button>
+        <button
+          onClick={() => setEbene('land')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.5rem 0.875rem', borderRadius: 7, fontFamily: 'inherit',
+            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+            background: ebene === 'land' ? 'rgba(255,166,0,0.15)' : 'transparent',
+            color: ebene === 'land' ? '#ffa600' : 'rgba(255,255,255,0.65)',
+            border: ebene === 'land' ? '1px solid rgba(255,166,0,0.4)' : '1px solid transparent',
+          }}
+        >
+          <Landmark size={12} /> Bundesland
+        </button>
+        <button
+          onClick={() => setEbene('bund')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.5rem 0.875rem', borderRadius: 7, fontFamily: 'inherit',
+            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+            background: ebene === 'bund' ? 'rgba(168,85,247,0.15)' : 'transparent',
+            color: ebene === 'bund' ? '#A855F7' : 'rgba(255,255,255,0.65)',
+            border: ebene === 'bund' ? '1px solid rgba(168,85,247,0.4)' : '1px solid transparent',
+          }}
+        >
+          <Globe size={12} /> Bund
+        </button>
+      </div>
+
+      {/* KOMMUNAL-ANSICHT */}
+      {ebene === 'kommunal' ? (
+        <KommunalPanel
+          ort={aktiveKampagne?.ort}
+          kandidat={aktiveKampagne?.kandidat}
+          wahltyp={aktiveKampagne?.wahltyp}
+          wahldatum={aktiveKampagne?.wahldatum}
+        />
+      ) : ebene === 'land' && selectedBL ? (
         <BundeslandPanel kuerzel={selectedBL} />
+      ) : ebene === 'land' ? (
+        <div style={{ background: '#162230', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 14, padding: '3rem', textAlign: 'center' }}>
+          <Landmark size={28} color="rgba(255,255,255,0.2)" style={{ marginBottom: '0.75rem' }} />
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9375rem' }}>Bundesland im Dropdown oben auswählen.</p>
+        </div>
       ) : (
         /* BUNDESEBENE */
         <>

@@ -6,8 +6,8 @@ import {
   Zap, Shield, Target, Users, ChevronRight, User, Rss, Check, AlertCircle
 } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
-import { useKampagne } from '../lib/kampagneContext'
-import { buildNarrativeContext } from '../lib/narrativeStore'
+import { useKampagne, loadKampagneDaten, tageUntilWahl, formatWahldatum } from '../lib/kampagneContext'
+import { buildNarrativeContext, getDachNarrativ, getThemenNarrative } from '../lib/narrativeStore'
 
 const CLAUDE_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 const CONFIG_KEY = 'polaris_briefing_config'
@@ -385,7 +385,46 @@ export default function Morgenbriefing() {
       const kampagneInfo = aktiveKampagne ? `Aktive Kampagne: ${aktiveKampagne.kandidat}, ${aktiveKampagne.wahltyp} ${aktiveKampagne.ort} (${aktiveKampagne.partei}).` : ''
       const narrativeKontext = aktiveKampagne ? buildNarrativeContext(aktiveKampagne.id) : ''
       const narrativeBlock = narrativeKontext ? `\n\nNARRATIV-STRATEGIE DER KAMPAGNE:\n${narrativeKontext}\n\nWichtig: Bewerte die Pressemeldungen durch die Narrativ-Brille — welche Meldung stützt das Dach-Narrativ, welche greift es an, welche aktiviert ein Themen-Narrativ? Lass das in brennpunkte und empfehlung einfließen.` : ''
-      const prompt = `Du schreibst das POLARIS Morgenbriefing für bildbrauerei, eine politische Kampagnenagentur. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen. Keine Einleitung, sofort zum Punkt. ${kampagneInfo}${narrativeBlock}
+
+      // Strukturierter lokaler Kontext
+      let lokalerKontextBlock = ''
+      if (aktiveKampagne) {
+        const tage = tageUntilWahl(aktiveKampagne.wahldatum)
+        const wahlPhase = tage == null ? '' : tage > 365 ? 'Vorlauf' : tage > 180 ? 'Aufbauphase' : tage > 90 ? 'Heißphase 90+' : tage > 30 ? 'Heißphase 30-90' : tage > 7 ? 'Endspurt' : tage > 0 ? 'Wahlwoche' : 'nach Wahltag'
+        const daten = loadKampagneDaten()[aktiveKampagne.id] || {}
+        const gegner = daten.gegenkandidaten?.kandidaten || []
+        const gegnerListe = gegner.length
+          ? gegner.slice(0, 6).map(g => `- ${g.name}${g.partei ? ` (${g.partei})` : ''}${g.beruf ? `, ${g.beruf}` : ''}`).join('\n')
+          : '(keine lokalen Gegenkandidaten erfasst)'
+        const dach = getDachNarrativ(aktiveKampagne.id)
+        const themenN = getThemenNarrative(aktiveKampagne.id).filter(n => n.status !== 'archiv')
+        const aktiveNarrative = themenN.length
+          ? themenN.slice(0, 5).map(n => `- "${n.titel}" [${n.themenfeld || 'allgemein'}]: ${n.kernbotschaft}${n.lokaler_bezug ? ` | Bezug: ${n.lokaler_bezug}` : ''}`).join('\n')
+          : '(keine aktiven Themen-Narrative)'
+
+        lokalerKontextBlock = `
+
+LOKALER KAMPAGNEN-KONTEXT (priorisiert vor Bundes-Themen):
+- Kandidat: ${aktiveKampagne.kandidat} | Ort: ${aktiveKampagne.ort} | Bundesland: ${aktiveKampagne.bundesland}
+- Wahltyp: ${aktiveKampagne.wahltyp} am ${formatWahldatum(aktiveKampagne.wahldatum)} (${tage != null ? `${tage} Tage` : '?'} | Phase: ${wahlPhase})
+- Partei/Status: ${aktiveKampagne.partei}
+
+LOKALE GEGENKANDIDATEN:
+${gegnerListe}
+
+DACH-NARRATIV: ${dach ? `"${dach.titel}" — ${dach.kernbotschaft}` : '(noch nicht gesetzt)'}
+AKTIVE THEMEN-NARRATIVE:
+${aktiveNarrative}
+
+Wichtig:
+- "schlagzeile" und "lage_prosa" sollen wo möglich den lokalen Wahlkampf in ${aktiveKampagne.ort} einbeziehen, nicht nur Bundesthemen.
+- "gegner_check" soll wenn möglich einen lokalen Gegenkandidaten benennen (was treibt er/sie heute) — neben den Bund-Akteuren.
+- "brennpunkte" sollten 1 lokales Brennpunkt-Topic enthalten (Gemeinderat, lokales Streitthema, Stadtpolitik), 1 Landes-, 1 Bundesthema.
+- "empfehlung" muss mindestens 1 konkret lokale Handlung enthalten (Termin in ${aktiveKampagne.ort}, Pressemitteilung zu lokalem Thema, Reaktion auf Gegenkandidat).
+- Wenn ein aktives Narrativ unter Druck steht (Pressemeldungen widersprechen ihm), das in "brennpunkte" markieren.
+- "ausblick" priorisiert lokale Termine vor Bundes-Terminen, wenn welche bekannt/ableitbar sind.`
+      }
+      const prompt = `Du schreibst das POLARIS Morgenbriefing für bildbrauerei, eine politische Kampagnenagentur. Stil: POLITICO Playbook Berlin kreuz Axios AM — trocken, pointiert, insiderisch. Kein Consulting-Sprech. Keine KI-Phrasen. Keine Einleitung, sofort zum Punkt. ${kampagneInfo}${lokalerKontextBlock}${narrativeBlock}
 
 HEUTE: ${wochentag}, ${today}. Aktuell ist es ${time} Uhr (${tageszeit}).
 

@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Monitor, RefreshCw, ExternalLink, Clock, Plus, X, MapPin } from 'lucide-react'
+import { Monitor, RefreshCw, ExternalLink, Clock, Plus, X, MapPin, Send, Users, Landmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/ui/PageHeader'
+import ScopeBar from '../components/ScopeBar'
+import { useKampagne, loadKampagneDaten } from '../lib/kampagneContext'
+import { useScope, getScopeLabel } from '../lib/scopeContext'
+import { setHandoff } from '../lib/handoff'
 
 const PARTEIEN = [
   { id: 'spd',    label: 'SPD',    color: '#E3000F', query: 'SPD Sozialdemokraten Politik' },
@@ -11,13 +16,15 @@ const PARTEIEN = [
   { id: 'bsw',    label: 'BSW',    color: '#9B59B6', query: 'BSW Bündnis Sahra Wagenknecht' },
 ]
 
+const LOKAL_COLORS = ['#52b7c1', '#ffa600', '#bf111b', '#A855F7', '#22c55e', '#f59e0b']
+
 const LOC_KEY = 'polaris_gegner_lists'
 function loadLists() { try { return JSON.parse(localStorage.getItem(LOC_KEY)) || [] } catch { return [] } }
 function saveLists(l) { localStorage.setItem(LOC_KEY, JSON.stringify(l)) }
 
-async function fetchPartyNews(query) {
+async function fetchNewsForQuery(query, days = 3) {
   try {
-    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query + ' when:3d')}&hl=de&gl=DE&ceid=DE:de`
+    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query + ` when:${days}d`)}&hl=de&gl=DE&ceid=DE:de`
     const res = await fetch(`/api/fetch-feed?url=${encodeURIComponent(feedUrl)}`, { signal: AbortSignal.timeout(12000) })
     if (!res.ok) return []
     const xml = await res.text()
@@ -42,7 +49,37 @@ function formatAgo(d) {
   } catch { return '' }
 }
 
-function PartyColumn({ p, news, loading }) {
+function NewsRow({ a, color, onCounter }) {
+  return (
+    <div
+      style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.12s', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}
+      onMouseEnter={e => e.currentTarget.style.background = `${color}0A`}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      <div style={{ flex: 1, minWidth: 0, cursor: a.url ? 'pointer' : 'default' }} onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}>
+        <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#fff', lineHeight: 1.45, marginBottom: '0.25rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {a.titel}
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.5625rem', color, fontWeight: 600, opacity: 0.85 }}>{a.quelle}</span>
+          {a.datum && <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 2 }}><Clock size={8} />{formatAgo(a.datum)}</span>}
+          {a.url && <ExternalLink size={9} color="rgba(255,255,255,0.5)" />}
+        </div>
+      </div>
+      {onCounter && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onCounter(a) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0.3rem 0.5rem', background: 'rgba(191,17,27,0.15)', border: '1px solid rgba(191,17,27,0.4)', borderRadius: 6, color: '#bf111b', fontSize: '0.625rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}
+          title="Gegenangriff in Social Media Fabrik"
+        >
+          <Send size={9} /> Gegenangriff
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Column({ p, news, loading, onCounter }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -55,9 +92,12 @@ function PartyColumn({ p, news, loading }) {
         display: 'flex', flexDirection: 'column', minHeight: 300,
       }}
     >
-      <div style={{ padding: '0.875rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: p.color }}>{p.label}</span>
-        <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>Top 5 · 3 Tage</span>
+      <div style={{ padding: '0.875rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: p.color, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.label}</div>
+          {p.sub && <div style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.55)', marginTop: 2, fontWeight: 600 }}>{p.sub}</div>}
+        </div>
+        <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600, whiteSpace: 'nowrap', paddingTop: 2 }}>Top 5</span>
       </div>
       <div style={{ flex: 1 }}>
         {loading ? (
@@ -69,25 +109,7 @@ function PartyColumn({ p, news, loading }) {
         ) : news.length === 0 ? (
           <div style={{ padding: '2.5rem', textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem' }}>Keine aktuellen Artikel</div>
         ) : news.map((a, i) => (
-          <div
-            key={i}
-            onClick={() => a.url && window.open(a.url, '_blank', 'noopener,noreferrer')}
-            style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: a.url ? 'pointer' : 'default', transition: 'background 0.12s', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}
-            onMouseEnter={e => e.currentTarget.style.background = `${p.color}0A`}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <span style={{ fontSize: '0.5625rem', fontWeight: 800, color: p.color, opacity: 0.7, minWidth: 14, paddingTop: 3, flexShrink: 0 }}>{i + 1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#fff', lineHeight: 1.45, marginBottom: '0.25rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {a.titel}
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.5625rem', color: p.color, fontWeight: 600, opacity: 0.85 }}>{a.quelle}</span>
-                {a.datum && <span style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 2 }}><Clock size={8} />{formatAgo(a.datum)}</span>}
-              </div>
-            </div>
-            {a.url && <ExternalLink size={10} color="rgba(255,255,255,0.6)" style={{ flexShrink: 0, marginTop: 3 }} />}
-          </div>
+          <NewsRow key={i} a={a} color={p.color} onCounter={onCounter ? () => onCounter(a, p) : null} />
         ))}
       </div>
     </motion.div>
@@ -201,33 +223,74 @@ function OrtslisitenPanel() {
 }
 
 export default function OppositionMonitoring() {
+  const navigate = useNavigate()
+  const { aktiveKampagne } = useKampagne()
+  const { scope } = useScope()
+
+  const lokaleKandidaten = useMemo(() => {
+    if (!aktiveKampagne) return []
+    const daten = loadKampagneDaten()[aktiveKampagne.id]
+    const list = daten?.gegenkandidaten?.kandidaten || []
+    return list.filter(k => k.name).map((k, i) => ({
+      id: `lokal-${i}`,
+      label: k.name,
+      sub: [k.partei, k.info].filter(Boolean).join(' · '),
+      color: LOKAL_COLORS[i % LOKAL_COLORS.length],
+      query: `"${k.name}"${k.partei ? ' ' + k.partei : ''}${aktiveKampagne.ort ? ' ' + aktiveKampagne.ort : ''}`,
+      partei: k.partei || '',
+    }))
+  }, [aktiveKampagne])
+
+  const hasLokal = lokaleKandidaten.length > 0
+  const [tab, setTab] = useState(hasLokal ? 'lokal' : 'bund')
+
+  useEffect(() => {
+    if (hasLokal) setTab('lokal')
+    else setTab('bund')
+  }, [aktiveKampagne?.id, hasLokal])
+
   const [newsData, setNewsData] = useState({})
   const [loading, setLoading] = useState({})
   const [syncing, setSyncing] = useState(false)
 
+  const activeColumns = tab === 'lokal' ? lokaleKandidaten : PARTEIEN
+
   const fetchAll = useCallback(async () => {
     setSyncing(true)
+    const cols = tab === 'lokal' ? lokaleKandidaten : PARTEIEN
     const newLoading = {}
-    PARTEIEN.forEach(p => { newLoading[p.id] = true })
-    setLoading(newLoading)
+    cols.forEach(c => { newLoading[c.id] = true })
+    setLoading(l => ({ ...l, ...newLoading }))
 
-    await Promise.all(PARTEIEN.map(async p => {
-      const results = await fetchPartyNews(p.query)
-      setNewsData(d => ({ ...d, [p.id]: results }))
-      setLoading(l => ({ ...l, [p.id]: false }))
+    await Promise.all(cols.map(async c => {
+      const results = await fetchNewsForQuery(c.query, 3)
+      setNewsData(d => ({ ...d, [c.id]: results }))
+      setLoading(l => ({ ...l, [c.id]: false }))
     }))
     setSyncing(false)
-  }, [])
+  }, [tab, lokaleKandidaten])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  const totalArticles = Object.values(newsData).reduce((s, a) => s + (a?.length || 0), 0)
+  function gegenangriff(a, p) {
+    const gegnerLabel = p.label
+    setHandoff('social-media-fabrik', {
+      thema: `Gegenangriff: ${gegnerLabel}`,
+      kontext: `Reaktion auf Artikel über ${gegnerLabel}${p.partei ? ' (' + p.partei + ')' : ''}:\n"${a.titel || ''}"\nQuelle: ${a.quelle || ''}\n${a.url ? 'Link: ' + a.url : ''}\n\nZielsetzung: Schwächen des Gegners aufzeigen, eigene Position kontrastieren, ohne unter die Gürtellinie zu gehen.`.trim(),
+      tone: 'angriffig',
+      mode: 'offensiv',
+      sourceLabel: 'Gegner-Analyse',
+    })
+    navigate('/social-media-fabrik')
+  }
 
   return (
     <div style={{ width: '100%' }}>
+      <ScopeBar />
+
       <PageHeader
         title="Gegner-Analyse"
-        description="Top 5 Presseartikel pro Partei der letzten 3 Tage — live aus Google News."
+        description={`Top 5 Presseartikel pro Gegner — live aus Google News.${scope !== 'bundesweit' ? ' · Scope: ' + getScopeLabel(scope, aktiveKampagne) : ''}`}
         icon={Monitor}
         color="#A855F7"
       >
@@ -237,22 +300,70 @@ export default function OppositionMonitoring() {
         </button>
       </PageHeader>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.625rem', marginBottom: '1.25rem' }}>
-        {PARTEIEN.map(p => (
-          <div key={p.id} style={{ background: '#162230', border: `1px solid rgba(255,255,255,0.06)`, borderTop: `3px solid ${p.color}`, borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{newsData[p.id]?.length ?? '—'}</div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: p.color, marginTop: '0.25rem' }}>{p.label}</div>
-          </div>
-        ))}
+      {/* Tab switcher: Lokal / Bund */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: '#162230', padding: 4, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
+        <button
+          onClick={() => setTab('lokal')}
+          disabled={!hasLokal}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.5rem 0.875rem', borderRadius: 7, fontFamily: 'inherit',
+            fontSize: '0.75rem', fontWeight: 700, cursor: hasLokal ? 'pointer' : 'not-allowed',
+            background: tab === 'lokal' ? 'rgba(82,183,193,0.15)' : 'transparent',
+            color: tab === 'lokal' ? '#52b7c1' : (hasLokal ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.3)'),
+            border: tab === 'lokal' ? '1px solid rgba(82,183,193,0.4)' : '1px solid transparent',
+          }}
+        >
+          <Users size={12} /> Lokale Gegenkandidaten {hasLokal && <span style={{ opacity: 0.7 }}>· {lokaleKandidaten.length}</span>}
+        </button>
+        <button
+          onClick={() => setTab('bund')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.5rem 0.875rem', borderRadius: 7, fontFamily: 'inherit',
+            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+            background: tab === 'bund' ? 'rgba(168,85,247,0.15)' : 'transparent',
+            color: tab === 'bund' ? '#A855F7' : 'rgba(255,255,255,0.65)',
+            border: tab === 'bund' ? '1px solid rgba(168,85,247,0.4)' : '1px solid transparent',
+          }}
+        >
+          <Landmark size={12} /> Bundesparteien
+        </button>
       </div>
 
-      {/* Party Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.875rem', marginBottom: '0.5rem' }}>
-        {PARTEIEN.map(p => (
-          <PartyColumn key={p.id} p={p} news={newsData[p.id] || []} loading={loading[p.id]} />
-        ))}
-      </div>
+      {tab === 'lokal' && !hasLokal && (
+        <div style={{ background: '#162230', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 12, padding: '2rem', textAlign: 'center', marginBottom: '1.25rem' }}>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Keine lokalen Gegenkandidaten hinterlegt.</p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>Im Onboarding der aktiven Kampagne ergänzen, oder Bundesparteien-Tab nutzen.</p>
+        </div>
+      )}
+
+      {/* Stats */}
+      {activeColumns.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(activeColumns.length, 5)}, 1fr)`, gap: '0.625rem', marginBottom: '1.25rem' }}>
+          {activeColumns.slice(0, 5).map(p => (
+            <div key={p.id} style={{ background: '#162230', border: `1px solid rgba(255,255,255,0.06)`, borderTop: `3px solid ${p.color}`, borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{newsData[p.id]?.length ?? '—'}</div>
+              <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: p.color, marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Column Grid */}
+      {activeColumns.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(activeColumns.length, 5)}, 1fr)`, gap: '0.875rem', marginBottom: '0.5rem' }}>
+          {activeColumns.map(p => (
+            <Column
+              key={p.id}
+              p={p}
+              news={newsData[p.id] || []}
+              loading={loading[p.id]}
+              onCounter={gegenangriff}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Location Monitoring */}
       <OrtslisitenPanel />

@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useArticles } from '../hooks/useArticles'
-import { Bell, TrendingUp, AlertTriangle, Minus, Clock, MapPin, Plus, X } from 'lucide-react'
+import { Bell, TrendingUp, AlertTriangle, Minus, Clock, MapPin, Plus, X, Bookmark } from 'lucide-react'
 import PageHeader from '../components/ui/PageHeader'
+import { setHandoff } from '../lib/handoff'
+import { useKampagne } from '../lib/kampagneContext'
 
 const LOC_FILTER_KEY = 'polaris_fruehwarn_orte'
 function loadOrte() { try { return JSON.parse(localStorage.getItem(LOC_FILTER_KEY)) || [] } catch { return [] } }
@@ -50,12 +53,38 @@ const AGE_CONFIG = {
   etabliert: { label: 'Etabliert', color: '#3B82F6', priority: 3 },
 }
 
+// Cluster-Key → Themenfeld-ID im NarrativBoard
+const CLUSTER_TO_THEMENFELD = {
+  sicherheit: 'sicherheit',
+  migration: 'migration',
+  wirtschaft: 'wirtschaft',
+  energie: 'umwelt',
+  soziales: 'soziales',
+  bildung: 'bildung',
+}
+
 export default function ThemenFruehwarnsystem() {
+  const navigate = useNavigate()
+  const { aktiveKampagne } = useKampagne()
   const { articles, loading } = useArticles({ limit: 500 })
   const [filter, setFilter] = useState('alle')
   const [orte, setOrte] = useState(loadOrte)
   const [ortInput, setOrtInput] = useState('')
   const [selectedOrt, setSelectedOrt] = useState(null)
+
+  function entwickleNarrativ(thema) {
+    // Top-Schlagzeile als Kernbotschaft-Anker
+    const topArticle = thema.matched.sort((a, b) => new Date(b.datum) - new Date(a.datum))[0]
+    const lokalerBezug = selectedOrt || aktiveKampagne?.ort || ''
+    setHandoff('narrativ-board', {
+      themenfeld: CLUSTER_TO_THEMENFELD[thema.key] || '',
+      titel: `${thema.label} — ${thema.status === 'heute' ? 'aktuelles Top-Thema' : 'aufkommendes Thema'}`,
+      kernbotschaft: topArticle?.titel ? `Reaktion auf: "${topArticle.titel}"` : `${thema.matched.length} aktuelle Artikel zu ${thema.label}. Eigene Position entwickeln, bevor Gegner Deutungshoheit gewinnt.`,
+      lokaler_bezug: lokalerBezug,
+      openModal: 'thema',
+    })
+    navigate('/narrativ-board')
+  }
 
   function addOrt() {
     const name = ortInput.trim()
@@ -255,6 +284,15 @@ export default function ThemenFruehwarnsystem() {
                     <div key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: j < Math.min(3, Math.ceil(t.velocity / 2)) ? cfg.color : 'rgba(255,255,255,0.08)' }} />
                   ))}
                 </div>
+
+                {/* Narrativ entwickeln */}
+                <button
+                  onClick={() => entwickleNarrativ(t)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0.4rem 0.625rem', background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.35)', borderRadius: 7, color: '#A855F7', fontSize: '0.6875rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}
+                  title="Narrativ im Narrativ-Board anlegen"
+                >
+                  <Bookmark size={10} /> Narrativ →
+                </button>
               </motion.div>
             )
           })}

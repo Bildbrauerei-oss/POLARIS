@@ -2,10 +2,12 @@ import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bookmark, Sparkles, Plus, Edit3, Trash2, Check, X, RefreshCw,
-  Crown, Layers, MapPin, Users, Tag, Loader,
+  Crown, Layers, MapPin, Users, Tag, Loader, Send,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/ui/PageHeader'
 import { useKampagne } from '../lib/kampagneContext'
+import { setHandoff, consumeHandoff } from '../lib/handoff'
 import {
   THEMENFELDER, MILIEUS, ALTERSGRUPPEN, STATUS,
   listNarrative, getDachNarrativ, getThemenNarrative,
@@ -146,7 +148,7 @@ function ThemenfeldChip({ id }) {
 // Dach-Narrativ Card
 // ──────────────────────────────────────────────────────────────────────────
 
-function DachCard({ kampagne, dach, onEdit, onCreate }) {
+function DachCard({ kampagne, dach, onEdit, onCreate, onPost }) {
   if (!dach) {
     return (
       <div style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.08), rgba(168,85,247,0.02))', border: '1px dashed rgba(168,85,247,0.35)', borderRadius: 16, padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -177,9 +179,16 @@ function DachCard({ kampagne, dach, onEdit, onCreate }) {
         <h3 style={{ fontSize: '1.375rem', fontWeight: 800, color: '#fff', lineHeight: 1.2, marginBottom: '0.5rem' }}>{dach.titel}</h3>
         <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.78)', lineHeight: 1.5 }}>{dach.kernbotschaft}</p>
       </div>
-      <button onClick={onEdit} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(168,85,247,0.12)', color: COLOR, border: '1px solid rgba(168,85,247,0.35)', borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.6875rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-        <Edit3 size={11} /> Bearbeiten
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
+        <button onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(168,85,247,0.12)', color: COLOR, border: '1px solid rgba(168,85,247,0.35)', borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.6875rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <Edit3 size={11} /> Bearbeiten
+        </button>
+        {onPost && (
+          <button onClick={onPost} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(249,115,22,0.12)', color: '#F97316', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.6875rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Send size={11} /> Post →
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -188,7 +197,7 @@ function DachCard({ kampagne, dach, onEdit, onCreate }) {
 // Themen-Card
 // ──────────────────────────────────────────────────────────────────────────
 
-function ThemenCard({ narrativ, onEdit, onDelete, onToggleStatus }) {
+function ThemenCard({ narrativ, onEdit, onDelete, onToggleStatus, onPost }) {
   const tf = THEMENFELDER.find(x => x.id === narrativ.themenfeld)
   const accent = tf?.color || COLOR
   return (
@@ -217,6 +226,12 @@ function ThemenCard({ narrativ, onEdit, onDelete, onToggleStatus }) {
         {narrativ.zielgruppe_alter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>· {narrativ.zielgruppe_alter}</span>)}
         {narrativ.lokaler_bezug && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><MapPin size={9} /> {narrativ.lokaler_bezug}</span>)}
       </div>
+      {onPost && (
+        <button onClick={onPost}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, background: 'rgba(249,115,22,0.1)', color: '#F97316', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 8, padding: '0.4rem 0.625rem', fontSize: '0.6875rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: '0.4rem' }}>
+          <Send size={10} /> Post generieren →
+        </button>
+      )}
     </motion.div>
   )
 }
@@ -463,6 +478,7 @@ function ThemaModal({ open, onClose, kampagne, existing, onSave }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 export default function NarrativBoard() {
+  const navigate = useNavigate()
   const { aktiveKampagne } = useKampagne()
   const kampagneId = aktiveKampagne?.id
   const [, setTick] = useState(0)
@@ -472,6 +488,36 @@ export default function NarrativBoard() {
   const [themaOpen, setThemaOpen] = useState(false)
   const [editingThema, setEditingThema] = useState(null)
   const [filter, setFilter] = useState('alle')
+
+  // Handoff aus Themen-Frühwarnsystem o.ä. — öffnet ThemaModal mit vorausgefüllten Werten
+  useEffect(() => {
+    const h = consumeHandoff('narrativ-board')
+    if (!h) return
+    if (h.openModal === 'thema') {
+      setEditingThema({
+        id: null,
+        titel: h.titel || '',
+        kernbotschaft: h.kernbotschaft || '',
+        themenfeld: h.themenfeld || '',
+        lokaler_bezug: h.lokaler_bezug || '',
+        zielgruppe_milieu: '', zielgruppe_alter: '',
+        status: 'entwurf',
+      })
+      setThemaOpen(true)
+    } else if (h.openModal === 'dach') {
+      setDachOpen(true)
+    }
+  }, [])
+
+  function postFromNarrativ(n) {
+    setHandoff('social-media-fabrik', {
+      thema: n.titel,
+      kontext: `${n.kernbotschaft}${n.lokaler_bezug ? ' [Lokaler Bezug: ' + n.lokaler_bezug + ']' : ''}`,
+      narrativId: n.typ === 'dach' ? 'dach' : n.id,
+      sourceLabel: 'Narrativ-Board',
+    })
+    navigate('/social-media-fabrik')
+  }
 
   const dach = useMemo(() => kampagneId ? getDachNarrativ(kampagneId) : null, [kampagneId])
   const themen = useMemo(() => kampagneId ? getThemenNarrative(kampagneId) : [], [kampagneId])
@@ -559,7 +605,8 @@ export default function NarrativBoard() {
       <div style={{ marginBottom: '1.5rem' }}>
         <DachCard kampagne={aktiveKampagne} dach={dach}
           onEdit={() => setDachOpen(true)}
-          onCreate={() => setDachOpen(true)} />
+          onCreate={() => setDachOpen(true)}
+          onPost={dach ? () => postFromNarrativ(dach) : null} />
       </div>
 
       {/* Filter */}
@@ -601,6 +648,7 @@ export default function NarrativBoard() {
                         onEdit={() => { setEditingThema(n); setThemaOpen(true) }}
                         onDelete={() => delThema(n.id)}
                         onToggleStatus={() => toggleStatus(n)}
+                        onPost={() => postFromNarrativ(n)}
                       />
                     ))}
                   </AnimatePresence>
