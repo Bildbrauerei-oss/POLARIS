@@ -455,6 +455,43 @@ Milieu-Sprache verwenden. Authentisch. Keine leeren Phrasen. Lokal konkret.`
                   </div>
                 </div>
 
+                {/* Stadtteil-Demografie-Tabelle (wenn Daten hinterlegt) */}
+                {(() => {
+                  const stadtteile = kampagneDaten?.demografie?.stadtteile || kampagneDaten?.stadtteile
+                  if (!stadtteile) return null
+                  const rows = Array.isArray(stadtteile) ? stadtteile.map(s => typeof s === 'string' ? { name: s } : s) : Object.entries(stadtteile).map(([k, v]) => typeof v === 'object' ? { name: k, ...v } : { name: k, info: v })
+                  if (rows.length === 0) return null
+                  // Spalten dynamisch ermitteln (alles außer "name")
+                  const cols = [...new Set(rows.flatMap(r => Object.keys(r).filter(k => k !== 'name')))].slice(0, 5)
+                  return (
+                    <div style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.18)', borderTop: '3px solid #52b7c1', borderRadius: 14, padding: '1.25rem', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <MapPin size={11} color="#52b7c1" />
+                        <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: '#52b7c1', textTransform: 'uppercase' }}>Stadtteil-Demografie · {ort}</span>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', fontSize: '0.75rem', color: '#E2E8F0', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(82,183,193,0.2)' }}>
+                              <th style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#52b7c1', fontWeight: 700, fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Stadtteil</th>
+                              {cols.map(c => <th key={c} style={{ textAlign: 'left', padding: '0.35rem 0.5rem', color: '#52b7c1', fontWeight: 700, fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{c}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.slice(0, 12).map((r, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600 }}>{r.name}</td>
+                                {cols.map(c => <td key={c} style={{ padding: '0.35rem 0.5rem', color: 'rgba(255,255,255,0.75)' }}>{typeof r[c] === 'object' ? JSON.stringify(r[c]) : (r[c] ?? '—')}</td>)}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {rows.length > 12 && <p style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem' }}>+ {rows.length - 12} weitere Stadtteile (Daten gehen vollständig in die KI-Empfehlung)</p>}
+                    </div>
+                  )
+                })()}
+
                 {/* Botschafts-Generator */}
                 <div style={{ background: '#162230', border: `1px solid ${COLOR}20`, borderRadius: 14, padding: '1.25rem' }}>
                   <p style={{ ...sectionLabel, marginBottom: '0.875rem' }}>KI-Botschaftsgenerator</p>

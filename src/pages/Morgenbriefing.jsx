@@ -8,6 +8,7 @@ import {
 import PageHeader from '../components/ui/PageHeader'
 import { useKampagne, loadKampagneDaten, tageUntilWahl, formatWahldatum } from '../lib/kampagneContext'
 import { buildNarrativeContext, getDachNarrativ, getThemenNarrative } from '../lib/narrativeStore'
+import { getScoreToday, getScoreYesterday } from './StimmungsKompass'
 
 const CLAUDE_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
 const CONFIG_KEY = 'polaris_briefing_config'
@@ -415,6 +416,26 @@ ${gegnerListe}
 DACH-NARRATIV: ${dach ? `"${dach.titel}" — ${dach.kernbotschaft}` : '(noch nicht gesetzt)'}
 AKTIVE THEMEN-NARRATIVE:
 ${aktiveNarrative}
+
+LOKALE STIMMUNG (Stimmungskompass):${(() => {
+  // Versuch: Region passend zu aktiveKampagne.ort, Fallback gesamt
+  const ortLower = (aktiveKampagne.ort || '').toLowerCase()
+  const probeIds = [aktiveKampagne.id, ortLower.includes('villingen') ? 'vs' : ortLower.includes('münchen') ? 'muenchen' : ortLower.includes('nordrhein') ? 'nrw' : 'gesamt']
+  let regionId = 'gesamt', heute = null, gestern = null
+  for (const id of probeIds) {
+    const t = getScoreToday(id); const g = getScoreYesterday(id)
+    if (t || g) { regionId = id; heute = t; gestern = g; break }
+  }
+  const bundHeute = getScoreToday('gesamt'); const bundGestern = getScoreYesterday('gesamt')
+  const delta = (heute && gestern) ? heute.score - gestern.score : null
+  const lokalLine = heute
+    ? `\n- Lokal (${regionId}) heute: ${heute.score > 0 ? '+' : ''}${heute.score} (${heute.total} Artikel)${gestern ? ` | gestern: ${gestern.score > 0 ? '+' : ''}${gestern.score} → ${delta > 0 ? `↑ ${delta}` : delta < 0 ? `↓ ${delta}` : '='}` : ' | gestern: keine Daten'}`
+    : '\n- Lokal: noch keine erfassten Tageswerte (Stimmungskompass öffnen, damit Score persistiert wird)'
+  const bundLine = bundHeute
+    ? `\n- Bund heute: ${bundHeute.score > 0 ? '+' : ''}${bundHeute.score}${bundGestern ? ` | gestern: ${bundGestern.score > 0 ? '+' : ''}${bundGestern.score}` : ''}`
+    : ''
+  return `${lokalLine}${bundLine}`
+})()}
 
 Wichtig:
 - "schlagzeile" und "lage_prosa" sollen wo möglich den lokalen Wahlkampf in ${aktiveKampagne.ort} einbeziehen, nicht nur Bundesthemen.

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useArticles } from '../hooks/useArticles'
 import { isUrgent } from '../lib/utils'
@@ -8,6 +8,33 @@ import PageHeader from '../components/ui/PageHeader'
 const COLOR = '#52b7c1'
 const REGIONEN_KEY = 'polaris_stimmung_regionen'
 const LISTS_KEY = 'polaris_stimmung_listen'
+const HISTORIE_KEY = 'polaris_stimmung_historie' // { [regionId]: { 'YYYY-MM-DD': { score, total, pos, neg } } }
+
+function todayKey() { return new Date().toISOString().slice(0, 10) }
+function yesterdayKey() {
+  const d = new Date(); d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+function loadHistorie() {
+  try { return JSON.parse(localStorage.getItem(HISTORIE_KEY)) || {} } catch { return {} }
+}
+function saveHistorie(h) { localStorage.setItem(HISTORIE_KEY, JSON.stringify(h)) }
+function recordScore(regionId, snapshot) {
+  const h = loadHistorie()
+  if (!h[regionId]) h[regionId] = {}
+  h[regionId][todayKey()] = { ...snapshot, ts: Date.now() }
+  // Behalte 60 Tage Historie
+  const cutoff = Date.now() - 60 * 86400000
+  Object.keys(h[regionId]).forEach(k => { if ((h[regionId][k]?.ts || 0) < cutoff) delete h[regionId][k] })
+  saveHistorie(h)
+}
+// Externe Helper für Morgenbriefing
+export function getScoreToday(regionId = 'gesamt') {
+  return loadHistorie()[regionId]?.[todayKey()] || null
+}
+export function getScoreYesterday(regionId = 'gesamt') {
+  return loadHistorie()[regionId]?.[yesterdayKey()] || null
+}
 
 const DEFAULT_REGIONEN = [
   { id: 'gesamt', name: 'Gesamt', keywords: [], feeds: [], farbe: '#52b7c1', icon: '🇩🇪' },
@@ -412,6 +439,16 @@ export default function StimmungsKompass() {
     if (!newList.find(r => r.id === activeRegionId)) setActiveRegionId('gesamt')
   }
 
+  // Score-Snapshot für heute persistieren (eine Aufnahme pro Region pro Tag)
+  useEffect(() => {
+    if (!stats || stats.total === 0) return
+    recordScore(activeRegion.id, { score: stats.score, total: stats.total, pos: stats.pos, neg: stats.neg })
+    if (bundStats && bundStats.total > 0) recordScore('gesamt', { score: bundStats.score, total: bundStats.total })
+  }, [stats?.score, stats?.total, bundStats?.score, bundStats?.total, activeRegion.id])
+
+  const yesterdayRegion = getScoreYesterday(activeRegion.id)
+  const deltaGestern = (stats && yesterdayRegion) ? stats.score - yesterdayRegion.score : null
+
   const topNeg = regionArticles.filter(a => a.cdu_wirkung === 'negativ' && a.zusammenfassung).slice(0, 5)
   const topPos = regionArticles.filter(a => a.cdu_wirkung === 'positiv' && a.zusammenfassung).slice(0, 5)
   const scoreColor = !stats ? COLOR : stats.score > 10 ? '#22c55e' : stats.score < -10 ? '#bf111b' : '#ffa600'
@@ -471,6 +508,11 @@ export default function StimmungsKompass() {
                 <div style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem' }}>
                   {stats.score > 20 ? 'Sehr positiv' : stats.score > 5 ? 'Leicht positiv' : stats.score < -20 ? 'Kritisch' : stats.score < -5 ? 'Leicht negativ' : 'Ausgeglichen'}
                 </div>
+                {deltaGestern != null && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.625rem', fontWeight: 700, color: deltaGestern > 0 ? '#22c55e' : deltaGestern < 0 ? '#bf111b' : 'rgba(255,255,255,0.4)' }}>
+                    {deltaGestern > 0 ? `↑ +${deltaGestern} vs. gestern` : deltaGestern < 0 ? `↓ ${deltaGestern} vs. gestern` : '= gleich wie gestern'}
+                  </div>
+                )}
                 {/* Bundesscore-Vergleich (nur wenn nicht Gesamt) */}
                 {activeRegion.id !== 'gesamt' && bundStats && (() => {
                   const bundColor = bundStats.score > 10 ? '#22c55e' : bundStats.score < -10 ? '#bf111b' : '#ffa600'
