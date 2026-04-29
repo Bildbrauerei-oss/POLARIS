@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 
 export const STORAGE_KEY = 'polaris_kampagnen'
 export const ACTIVE_KEY = 'polaris_aktive_kampagne'
+export const DATEN_KEY = 'polaris_kampagne_daten' // { [kampagneId]: { ts, feeds, demografie, gemeinderat, gegenkandidaten } }
 
 export const DEFAULT_KAMPAGNEN = [
   {
@@ -50,6 +51,16 @@ export function loadAktiveId() {
 
 export function saveAktiveId(id) {
   localStorage.setItem(ACTIVE_KEY, id)
+}
+
+export function loadKampagneDaten() {
+  try {
+    return JSON.parse(localStorage.getItem(DATEN_KEY)) || {}
+  } catch { return {} }
+}
+
+export function saveKampagneDaten(map) {
+  localStorage.setItem(DATEN_KEY, JSON.stringify(map))
 }
 
 export function tageUntilWahl(wahldatum) {

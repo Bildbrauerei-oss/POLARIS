@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import Topbar from './Topbar'
+import DataSourcesPanel from './DataSourcesPanel'
 
 export default function Layout({ onLogout }) {
   return (
@@ -10,6 +11,7 @@ export default function Layout({ onLogout }) {
           <Outlet />
         </div>
       </main>
+      <DataSourcesPanel />
     </div>
   )
 }

@@ -1,36 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Search, LogOut, X, Menu, ChevronRight, ChevronDown, Plus, Check, Calendar } from 'lucide-react'
+import { Search, LogOut, X, Menu, ChevronRight, ChevronDown, Plus, Check, Calendar, Sparkles } from 'lucide-react'
 import { ALL_MODULES, NAV_GROUPS } from '../nav'
 import { useKampagne } from '../lib/kampagneContext'
 import { tageUntilWahl, formatWahldatum } from '../lib/kampagneContext'
+import KampagnenOnboarding from '../pages/KampagnenOnboarding'
 
-const WAHLTYPEN = ['OB-Wahl', 'Bürgermeisterwahl', 'Landtagswahl', 'Kommunalwahl', 'Bundestagswahl']
-const BUNDESLAENDER = ['Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen', 'Hamburg', 'Hessen', 'Mecklenburg-Vorpommern', 'Niedersachsen', 'Nordrhein-Westfalen', 'Rheinland-Pfalz', 'Saarland', 'Sachsen', 'Sachsen-Anhalt', 'Schleswig-Holstein', 'Thüringen']
-
-function KampagneSwitcher() {
-  const { kampagnen, aktiveKampagne, aktiveId, switchKampagne, addKampagne, deleteKampagne } = useKampagne()
+function KampagneSwitcher({ onOpenOnboarding }) {
+  const { kampagnen, aktiveKampagne, aktiveId, switchKampagne, deleteKampagne } = useKampagne()
   const [open, setOpen] = useState(false)
-  const [showForm, setShowForm] = useState(false)
   const ref = useRef(null)
-  const [form, setForm] = useState({ kandidat: '', ort: '', bundesland: 'Baden-Württemberg', wahltyp: 'OB-Wahl', wahldatum: '', partei: '' })
 
   useEffect(() => {
-    function handler(e) { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setShowForm(false) } }
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   const tage = tageUntilWahl(aktiveKampagne?.wahldatum)
-
-  function submit(e) {
-    e.preventDefault()
-    if (!form.kandidat.trim() || !form.ort.trim()) return
-    addKampagne(form)
-    setForm({ kandidat: '', ort: '', bundesland: 'Baden-Württemberg', wahltyp: 'OB-Wahl', wahldatum: '', partei: '' })
-    setShowForm(false)
-    setOpen(false)
-  }
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -89,52 +76,20 @@ function KampagneSwitcher() {
             })}
           </div>
 
-          {/* Neue Kampagne */}
+          {/* Neue Kampagne — öffnet Onboarding-Wizard */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            {!showForm ? (
-              <button onClick={() => setShowForm(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#52b7c1', fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.1s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(82,183,193,0.08)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                <Plus size={13} /> Neue Kampagne anlegen
-              </button>
-            ) : (
-              <form onSubmit={submit} style={{ padding: '0.875rem 1rem' }}>
-                <div style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.12em', color: '#52b7c1', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Neue Kampagne</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <input required value={form.kandidat} onChange={e => setForm(f => ({ ...f, kandidat: e.target.value }))} placeholder="Kandidat*" style={fStyle} />
-                  <input required value={form.ort} onChange={e => setForm(f => ({ ...f, ort: e.target.value }))} placeholder="Ort / Gemeinde*" style={fStyle} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <select value={form.wahltyp} onChange={e => setForm(f => ({ ...f, wahltyp: e.target.value }))} style={fStyle}>
-                    {WAHLTYPEN.map(w => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                  <input value={form.partei} onChange={e => setForm(f => ({ ...f, partei: e.target.value }))} placeholder="Partei / Unterstützung" style={fStyle} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  <select value={form.bundesland} onChange={e => setForm(f => ({ ...f, bundesland: e.target.value }))} style={fStyle}>
-                    {BUNDESLAENDER.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  <input type="date" value={form.wahldatum} onChange={e => setForm(f => ({ ...f, wahldatum: e.target.value }))} style={fStyle} />
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="submit" style={{ flex: 1, padding: '0.5rem', background: 'rgba(82,183,193,0.15)', border: '1px solid rgba(82,183,193,0.4)', borderRadius: 7, color: '#52b7c1', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Anlegen
-                  </button>
-                  <button type="button" onClick={() => setShowForm(false)} style={{ padding: '0.5rem 0.75rem', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: 'rgba(255,255,255,0.5)', fontSize: '0.8125rem', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Abbruch
-                  </button>
-                </div>
-              </form>
-            )}
+            <button onClick={() => { setOpen(false); onOpenOnboarding?.() }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer', color: '#52b7c1', fontSize: '0.8125rem', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.1s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(82,183,193,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+              <Sparkles size={13} /> Neue Kampagne mit Datenrecherche
+            </button>
           </div>
         </div>
       )}
     </div>
   )
 }
-
-const fStyle = { width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '0.4rem 0.625rem', color: '#fff', fontSize: '0.75rem', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }
 
 function GlobalSearch({ onClose }) {
   const [q, setQ] = useState('')
@@ -252,6 +207,7 @@ const NAV_ITEMS = [
 export default function Topbar({ onLogout }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
 
   useEffect(() => {
     function onKey(e) {
@@ -265,6 +221,7 @@ export default function Topbar({ onLogout }) {
     <>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
       {menuOpen && <MobileDrawer onClose={() => setMenuOpen(false)} onLogout={onLogout} />}
+      <KampagnenOnboarding open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
 
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, height: 56, zIndex: 100,
@@ -291,7 +248,7 @@ export default function Topbar({ onLogout }) {
 
         {/* Kampagnen-Switcher */}
         <div className="kampagne-switcher">
-          <KampagneSwitcher />
+          <KampagneSwitcher onOpenOnboarding={() => setOnboardingOpen(true)} />
         </div>
 
         {/* Desktop nav */}

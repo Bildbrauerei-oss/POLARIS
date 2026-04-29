@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { KampagneContext, loadKampagnen, saveKampagnen, loadAktiveId, saveAktiveId } from '../lib/kampagneContext'
+import {
+  KampagneContext,
+  loadKampagnen, saveKampagnen,
+  loadAktiveId, saveAktiveId,
+  loadKampagneDaten, saveKampagneDaten,
+} from '../lib/kampagneContext'
 
 export default function KampagneProvider({ children }) {
   const [kampagnen, setKampagnen] = useState(loadKampagnen)
   const [aktiveId, setAktiveId] = useState(loadAktiveId)
+  const [kampagneDaten, setKampagneDatenState] = useState(loadKampagneDaten)
 
   const aktiveKampagne = kampagnen.find(k => k.id === aktiveId) || kampagnen[0]
+  const aktiveDaten = aktiveKampagne ? kampagneDaten[aktiveKampagne.id] : null
 
   function switchKampagne(id) {
     setAktiveId(id)
@@ -34,10 +41,23 @@ export default function KampagneProvider({ children }) {
     setKampagnen(next)
     saveKampagnen(next)
     if (aktiveId === id) switchKampagne(next[0].id)
+    const nd = { ...kampagneDaten }
+    delete nd[id]
+    setKampagneDatenState(nd)
+    saveKampagneDaten(nd)
+  }
+
+  function setKampagneDaten(id, daten) {
+    const next = { ...kampagneDaten, [id]: daten }
+    setKampagneDatenState(next)
+    saveKampagneDaten(next)
   }
 
   return (
-    <KampagneContext.Provider value={{ kampagnen, aktiveKampagne, aktiveId, switchKampagne, addKampagne, updateKampagne, deleteKampagne }}>
+    <KampagneContext.Provider value={{
+      kampagnen, aktiveKampagne, aktiveId, aktiveDaten, kampagneDaten,
+      switchKampagne, addKampagne, updateKampagne, deleteKampagne, setKampagneDaten,
+    }}>
       {children}
     </KampagneContext.Provider>
   )
