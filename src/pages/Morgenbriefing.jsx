@@ -318,7 +318,7 @@ function ConfigPanel({ config, onUpdate, onClose }) {
 // ---- Hauptkomponente ----
 
 export default function Morgenbriefing() {
-  const { aktiveKampagne } = useKampagne()
+  const { aktiveKampagne, aktivesProfil } = useKampagne()
   const [config, setConfig] = useState(loadConfig)
   const [briefing, setBriefing] = useState(loadBriefing)
   const [articles, setArticles] = useState([])
@@ -344,7 +344,19 @@ export default function Morgenbriefing() {
   async function loadArticles() {
     setFetchingArticles(true)
     const all = []
-    await Promise.all(config.feeds.map(async feed => {
+
+    // Kampagnen-spezifische Feeds ergänzen wenn eine aktive Kampagne vorhanden
+    const feedsToLoad = [...config.feeds]
+    if (aktiveKampagne && aktiveKampagne.id !== '__bund__') {
+      const ort = aktiveKampagne.ort || ''
+      const kandidat = aktiveKampagne.kandidat || ''
+      if (ort) feedsToLoad.push({ id: '_k_ort', label: `Lokal: ${ort}`, url: `https://news.google.com/rss/search?q=${encodeURIComponent(ort)}&hl=de&gl=DE&ceid=DE:de` })
+      if (kandidat) feedsToLoad.push({ id: '_k_kand', label: `Kandidat: ${kandidat}`, url: `https://news.google.com/rss/search?q=${encodeURIComponent(`"${kandidat}"`)}&hl=de&gl=DE&ceid=DE:de` })
+      const customFeeds = (aktivesProfil?.lokale_feeds || []).filter(f => f.url)
+      customFeeds.forEach((f, i) => feedsToLoad.push({ id: `_k_custom_${i}`, label: f.name || f.url, url: f.url }))
+    }
+
+    await Promise.all(feedsToLoad.map(async feed => {
       const items = await fetchFeed(feed.url)
       items.forEach(a => all.push({ ...a, feedLabel: feed.label }))
     }))
@@ -371,7 +383,7 @@ export default function Morgenbriefing() {
     return { deduped, mentions }
   }
 
-  useEffect(() => { loadArticles() }, [])
+  useEffect(() => { loadArticles() }, [aktiveKampagne?.id])
 
   async function generateKI() {
     setGeneratingKI(true)
