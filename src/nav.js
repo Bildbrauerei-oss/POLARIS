@@ -4,7 +4,7 @@ import {
   Clock, Crosshair,
   Megaphone, MessageCircle,
   Folder, Users,
-  Scale, Settings, Sun
+  Scale, Settings, Sun, User
 } from 'lucide-react'
 
 export const NAV_GROUPS = [
@@ -13,6 +13,7 @@ export const NAV_GROUPS = [
     label: 'HAUPTBEREICH',
     items: [
       { path: '/', label: 'Command Center', icon: LayoutDashboard, desc: 'Zentrales Lagebild – alle wichtigen Daten auf einen Blick.' },
+      { path: '/profil', label: 'Kampagnen-Profil', icon: User, desc: 'Profil der aktiven Kampagne — Kandidat, Gegner, Medien, Themen.' },
       { path: '/morgenbriefing', label: 'Morgenbriefing', icon: Sun, desc: 'Automatisiertes tägliches Email-Briefing mit KI-Analyse.' },
       { path: '/umfrage-radar', label: 'Umfrage-Radar', icon: BarChart2, desc: 'Aktuelle Umfragedaten, Trends und Wahlprognosen.' },
       { path: '/medien-monitor', label: 'Medien-Monitor', icon: Newspaper, desc: 'Presseberichterstattung und Medienpräsenz im Überblick.' },

@@ -24,6 +24,7 @@ import Projekte from './pages/Projekte'
 import KollegenBoard from './pages/KollegenBoard'
 import AdminDashboard from './pages/AdminDashboard'
 import Morgenbriefing from './pages/Morgenbriefing'
+import Profil from './pages/Profil'
 import ModulePage from './pages/ModulePage'
 import NotFound from './pages/NotFound'
 import { ALL_MODULES } from './nav'
@@ -46,6 +47,7 @@ const CUSTOM_PAGES = {
   '/projekte': Projekte,
   '/kollegen-board': KollegenBoard,
   '/morgenbriefing': Morgenbriefing,
+  '/profil': Profil,
   '/admin': AdminDashboard,
 }
 

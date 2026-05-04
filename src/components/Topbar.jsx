@@ -21,7 +21,7 @@ function KampagneSwitcher({ onOpenOnboarding }) {
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button onClick={() => { setOpen(o => !o); setShowForm(false) }}
+      <button onClick={() => setOpen(o => !o)}
         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.625rem', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 8, cursor: 'pointer', color: '#fff', fontFamily: 'inherit', transition: 'background 0.15s', maxWidth: 220 }}
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
         onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}>

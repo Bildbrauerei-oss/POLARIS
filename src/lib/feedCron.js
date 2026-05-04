@@ -1,4 +1,4 @@
-import { fetchAllFeeds } from './rssAggregator'
+import { fetchAllFeeds, fetchKampagneFeeds } from './rssAggregator'
 import { monitorAll } from './newsMonitor'
 import { saveArticles, deleteOldArticles } from './feedProcessor'
 import { analyzeUnprocessedArticles } from './feedAnalyzer'
@@ -13,7 +13,7 @@ export function shouldRun() {
   return Date.now() - parseInt(last) > SIX_HOURS
 }
 
-export async function runFeedSync(force = false) {
+export async function runFeedSync(force = false, kampagne = null, profil = null) {
   if (!force && !shouldRun()) {
     return { skipped: true, reason: 'Letzter Sync vor weniger als 6 Stunden.' }
   }
@@ -32,7 +32,9 @@ export async function runFeedSync(force = false) {
     const monitoringListen = listen || []
 
     log.push('RSS-Feeds werden abgerufen…')
-    const rssArticles = await fetchAllFeeds()
+    const rssArticles = kampagne
+      ? await fetchKampagneFeeds(kampagne, profil)
+      : await fetchAllFeeds()
     log.push(`${rssArticles.length} Artikel aus RSS-Feeds geladen.`)
 
     log.push('Google News wird abgerufen…')

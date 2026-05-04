@@ -70,4 +70,29 @@ export async function fetchAllFeeds() {
   return results.flatMap(r => r.status === 'fulfilled' ? r.value : [])
 }
 
+// Lädt nur kampagnen-spezifische Feeds.
+// Quellen: lokale_feeds aus Profil + automatische Google-News-Queries für Ort/Kandidat.
+export async function fetchKampagneFeeds(kampagne, profil) {
+  if (!kampagne || kampagne.id === '__bund__') return fetchAllFeeds()
+
+  const customFeeds = (profil?.lokale_feeds || []).filter(f => f.url).map(f => f.url)
+  const ort = (kampagne.ort || '').trim()
+  const kandidat = (kampagne.kandidat || '').trim()
+  const bundesland = (kampagne.bundesland || '').trim()
+
+  const googleQueries = [
+    ort && `${ort}`,
+    kandidat && `"${kandidat}"`,
+    ort && `${ort} Politik`,
+    kampagne.wahltyp && ort && `${kampagne.wahltyp} ${ort}`,
+    bundesland && `Politik ${bundesland}`,
+  ].filter(Boolean)
+  const googleUrls = googleQueries.map(q => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=de&gl=DE&ceid=DE:de`)
+
+  const allUrls = [...customFeeds, ...googleUrls]
+  const promises = allUrls.map(url => fetchFeed(url, 'lokal'))
+  const results = await Promise.allSettled(promises)
+  return results.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+}
+
 export { RSS_FEEDS }

@@ -430,7 +430,7 @@ function Section({ title, color = '#52b7c1', right, children }) {
 }
 
 export default function CommandCenter() {
-  const { aktiveKampagne, kampagnen } = useKampagne()
+  const { aktiveKampagne, kampagnen, aktivesProfil } = useKampagne()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend'
   const today = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -443,7 +443,7 @@ export default function CommandCenter() {
 
   async function handleSync() {
     setSyncing(true); setSyncMsg(null)
-    const r = await runFeedSync(true)
+    const r = await runFeedSync(true, aktiveKampagne, aktivesProfil)
     setSyncMsg(r.success ? `✓ Sync abgeschlossen` : '✗ Sync fehlgeschlagen')
     setSyncing(false); refetch()
     setTimeout(() => setSyncMsg(null), 4000)
