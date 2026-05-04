@@ -230,7 +230,8 @@ export default function OppositionMonitoring() {
   const lokaleKandidaten = useMemo(() => {
     if (!aktiveKampagne) return []
     const daten = loadKampagneDaten()[aktiveKampagne.id]
-    const list = daten?.gegenkandidaten?.kandidaten || []
+    // Profil speichert unter daten[id].profil.gegenkandidaten (flache Liste)
+    const list = daten?.profil?.gegenkandidaten || daten?.gegenkandidaten?.kandidaten || []
     return list.filter(k => k.name).map((k, i) => ({
       id: `lokal-${i}`,
       label: k.name,

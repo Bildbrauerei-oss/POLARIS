@@ -5,13 +5,13 @@ import { useArticles } from '../hooks/useArticles'
 import { runFeedSync, getLastRun } from '../lib/feedCron'
 import { NAV_GROUPS } from '../nav'
 import { GROUP_COLORS, isUrgent } from '../lib/utils'
-import { useKampagne } from '../lib/kampagneContext'
+import { useKampagne, tageUntilWahl, formatWahldatum } from '../lib/kampagneContext'
 import { buildNarrativeContext } from '../lib/narrativeStore'
 import {
   RefreshCw, ExternalLink, ChevronRight,
   Newspaper, BarChart2, Shield, Target, Folder, Megaphone,
   TrendingUp, TrendingDown, Send,
-  ArrowUpRight, AlertTriangle, History, Plus, Clock
+  ArrowUpRight, AlertTriangle, History, Plus, Clock, Calendar, MapPin, User, CheckCircle
 } from 'lucide-react'
 
 // Render Claude markdown as clean readable text: bold + paragraphs, no asterisks
@@ -429,6 +429,92 @@ function Section({ title, color = '#52b7c1', right, children }) {
   )
 }
 
+function KampagnenBanner({ kampagne, profil }) {
+  if (!kampagne || kampagne.id === '__bund__') return null
+  const tage = tageUntilWahl(kampagne.wahldatum)
+  const gegner = (profil?.gegenkandidaten || []).filter(k => k.name)
+  const themen = (profil?.lokale_themen || []).filter(t => t.titel)
+  const feeds = (profil?.lokale_feeds || []).filter(f => f.url)
+
+  const checks = [
+    kampagne.kandidat, kampagne.ort, kampagne.bundesland, kampagne.wahltyp, kampagne.wahldatum, kampagne.partei,
+    profil?.kandidat_bio, profil?.kandidat_alter, profil?.kandidat_beruf, profil?.kandidat_foto_url,
+    profil?.kandidat_usp, profil?.einwohner, profil?.amtsinhaber_oder_herausforderer,
+    gegner.length, feeds.length, themen.length,
+    profil?.endorser?.length, profil?.hauptbotschaft, profil?.claim, profil?.budget,
+  ]
+  const completion = Math.round(checks.filter(Boolean).length / checks.length * 100)
+  const compColor = completion > 70 ? '#22c55e' : completion > 40 ? '#ffa600' : '#ef4444'
+
+  const tageColor = !tage ? 'rgba(255,255,255,0.5)' : tage < 30 ? '#ef4444' : tage < 90 ? '#ffa600' : '#22c55e'
+
+  return (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+      style={{ background: '#162230', border: '1px solid rgba(82,183,193,0.2)', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+      {/* Kandidat + Ort */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: '0 0 auto' }}>
+        <div style={{ width: 36, height: 36, background: 'rgba(82,183,193,0.12)', border: '1px solid rgba(82,183,193,0.25)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <User size={16} color="#52b7c1" />
+        </div>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#fff', lineHeight: 1.2 }}>{kampagne.kandidat}</div>
+          <div style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <MapPin size={9} /> {kampagne.ort} · {kampagne.wahltyp}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+
+      {/* Tage bis Wahl */}
+      <div style={{ flex: '0 0 auto', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Inter', fontWeight: 900, fontSize: '1.625rem', color: tageColor, letterSpacing: '-0.04em', lineHeight: 1 }}>
+          {tage != null ? tage : '—'}
+        </div>
+        <div style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginTop: 2 }}>
+          {tage != null ? 'Tage' : 'Kein Datum'}
+        </div>
+        {kampagne.wahldatum && <div style={{ fontSize: '0.5625rem', color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{formatWahldatum(kampagne.wahldatum)}</div>}
+      </div>
+
+      <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+
+      {/* Profil-Vollständigkeit */}
+      <div style={{ flex: '1 1 120px', minWidth: 100 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase' }}>Profil</span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: compColor }}>{completion}%</span>
+        </div>
+        <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${completion}%`, background: compColor, borderRadius: 3, transition: 'width 0.4s' }} />
+        </div>
+        {completion < 60 && (
+          <NavLink to="/profil" style={{ fontSize: '0.5625rem', color: '#52b7c1', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: 4 }}>
+            Profil vervollständigen →
+          </NavLink>
+        )}
+      </div>
+
+      <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+
+      {/* Schnell-Stats */}
+      <div style={{ display: 'flex', gap: '1.25rem', flex: '0 0 auto' }}>
+        {[
+          { label: 'Gegner', value: gegner.length, color: '#A855F7' },
+          { label: 'Themen', value: themen.length, color: '#ffa600' },
+          { label: 'Quellen', value: feeds.length, color: '#52b7c1' },
+        ].map(s => (
+          <div key={s.label} style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Inter', fontWeight: 800, fontSize: '1.125rem', color: s.value > 0 ? s.color : 'rgba(255,255,255,0.25)', letterSpacing: '-0.03em' }}>{s.value}</div>
+            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
 export default function CommandCenter() {
   const { aktiveKampagne, kampagnen, aktivesProfil } = useKampagne()
   const hour = new Date().getHours()
@@ -525,6 +611,9 @@ export default function CommandCenter() {
           )}
         </div>
       </div>
+
+      {/* KAMPAGNEN-BANNER */}
+      <KampagnenBanner kampagne={aktiveKampagne} profil={aktivesProfil} />
 
       {/* SCHNELLZUGRIFF */}
       <div className="quicklinks-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
