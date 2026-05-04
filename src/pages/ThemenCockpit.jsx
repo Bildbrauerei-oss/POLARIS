@@ -261,7 +261,7 @@ function LokallistePanel({ articles }) {
 
 export default function ThemenCockpit() {
   const { articles, loading } = useArticles({ limit: 500 })
-  const { aktiveKampagne } = useKampagne()
+  const { aktiveKampagne, aktivesProfil } = useKampagne()
   const dachNarrativ = aktiveKampagne ? getDachNarrativ(aktiveKampagne.id) : null
   const themenNarrative = aktiveKampagne ? getThemenNarrative(aktiveKampagne.id).filter(n => n.status === 'aktiv') : []
   const [regionen] = useState(loadRegionen)
@@ -351,6 +351,32 @@ export default function ThemenCockpit() {
           Regionen in Stimmungskompass verwalten
         </span>
       </div>
+
+      {/* Kampagnen-Themen aus Profil */}
+      {aktivesProfil?.lokale_themen?.length > 0 && (
+        <div style={{ background: '#162230', border: '1px solid rgba(255,166,0,0.2)', borderRadius: 12, padding: '0.875rem 1rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+            <Target size={12} color={COLOR} />
+            <span style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.14em', color: COLOR, textTransform: 'uppercase' }}>Kampagnen-Themen · {aktiveKampagne?.ort}</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+            {aktivesProfil.lokale_themen.map((t, i) => {
+              const brennColor = t.brennstufe === 'hoch' ? '#ef4444' : t.brennstufe === 'mittel' ? '#ffa600' : '#52b7c1'
+              const count = regionArticles.filter(a => {
+                const text = `${a.titel || ''} ${a.zusammenfassung || ''}`.toLowerCase()
+                return t.titel && text.includes(t.titel.toLowerCase())
+              }).length
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.3rem 0.625rem', background: `${brennColor}10`, border: `1px solid ${brennColor}30`, borderRadius: 8 }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{t.titel}</span>
+                  {t.position && <span style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>{t.position}</span>}
+                  {count > 0 && <span style={{ fontSize: '0.625rem', fontWeight: 700, color: brennColor }}>{count} Art.</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Narrativ-Banner */}
       {dachNarrativ && (

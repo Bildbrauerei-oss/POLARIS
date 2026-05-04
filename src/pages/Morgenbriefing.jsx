@@ -405,7 +405,7 @@ export default function Morgenbriefing() {
         const tage = tageUntilWahl(aktiveKampagne.wahldatum)
         const wahlPhase = tage == null ? '' : tage > 365 ? 'Vorlauf' : tage > 180 ? 'Aufbauphase' : tage > 90 ? 'Heißphase 90+' : tage > 30 ? 'Heißphase 30-90' : tage > 7 ? 'Endspurt' : tage > 0 ? 'Wahlwoche' : 'nach Wahltag'
         const daten = loadKampagneDaten()[aktiveKampagne.id] || {}
-        const gegner = daten.gegenkandidaten?.kandidaten || []
+        const gegner = daten.profil?.gegenkandidaten || daten.gegenkandidaten?.kandidaten || []
         const gegnerListe = gegner.length
           ? gegner.slice(0, 6).map(g => `- ${g.name}${g.partei ? ` (${g.partei})` : ''}${g.beruf ? `, ${g.beruf}` : ''}`).join('\n')
           : '(keine lokalen Gegenkandidaten erfasst)'
@@ -415,12 +415,13 @@ export default function Morgenbriefing() {
           ? themenN.slice(0, 5).map(n => `- "${n.titel}" [${n.themenfeld || 'allgemein'}]: ${n.kernbotschaft}${n.lokaler_bezug ? ` | Bezug: ${n.lokaler_bezug}` : ''}`).join('\n')
           : '(keine aktiven Themen-Narrative)'
 
+        const profil = daten.profil || {}
         lokalerKontextBlock = `
 
 LOKALER KAMPAGNEN-KONTEXT (priorisiert vor Bundes-Themen):
 - Kandidat: ${aktiveKampagne.kandidat} | Ort: ${aktiveKampagne.ort} | Bundesland: ${aktiveKampagne.bundesland}
 - Wahltyp: ${aktiveKampagne.wahltyp} am ${formatWahldatum(aktiveKampagne.wahldatum)} (${tage != null ? `${tage} Tage` : '?'} | Phase: ${wahlPhase})
-- Partei/Status: ${aktiveKampagne.partei}
+- Partei/Status: ${aktiveKampagne.partei}${profil.hauptbotschaft ? `\n- Hauptbotschaft: "${profil.hauptbotschaft}"` : ''}${profil.claim ? `\n- Claim/Slogan: "${profil.claim}"` : ''}${profil.amtsinhaber_oder_herausforderer ? `\n- Rolle: ${profil.amtsinhaber_oder_herausforderer}` : ''}
 
 LOKALE GEGENKANDIDATEN:
 ${gegnerListe}

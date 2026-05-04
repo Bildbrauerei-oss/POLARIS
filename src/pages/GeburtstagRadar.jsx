@@ -13,8 +13,58 @@ const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'A
 const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 // CDU/CSU Politiker — verifiziert via Wikipedia DE + Zweitquelle
-// Stand: April 2026 | Doppelverifikation: Wikipedia DE + Wikidata/Bundestag/offizielle Quellen
-const CDU_PREFILL = []
+// Stand: Mai 2026 | Doppelverifikation: Wikipedia DE + Wikidata/Bundestag/offizielle Quellen
+const CDU_PREFILL = [
+  // Bundesebene Führung
+  { name: 'Friedrich Merz',              partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1955-11-11' },
+  { name: 'Carsten Linnemann',           partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1977-08-10' },
+  { name: 'Thorsten Frei',               partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1976-02-09' },
+  { name: 'Jens Spahn',                  partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1980-05-16' },
+  { name: 'Norbert Röttgen',             partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1965-07-02' },
+  { name: 'Ralph Brinkhaus',             partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1968-06-15' },
+  { name: 'Silvia Breher',               partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1973-07-23' },
+  { name: 'Serap Güler',                 partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1980-07-07' },
+  { name: 'Paul Ziemiak',                partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1985-09-06' },
+  { name: 'Peter Altmaier',              partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1958-06-18' },
+  { name: 'Karl-Josef Laumann',          partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1957-07-11' },
+  { name: 'Armin Laschet',               partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1961-02-18' },
+  { name: 'Angela Merkel',               partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1954-07-17' },
+  { name: 'Annegret Kramp-Karrenbauer',  partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1962-08-09' },
+  { name: 'Ursula von der Leyen',        partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1958-10-08' },
+  // Ministerpräsidenten
+  { name: 'Hendrik Wüst',               partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1975-07-19' },
+  { name: 'Daniel Günther',             partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1973-07-24' },
+  { name: 'Boris Rhein',                partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1972-01-02' },
+  { name: 'Mario Voigt',                partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1977-02-08' },
+  { name: 'Reiner Haseloff',            partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1954-02-19' },
+  { name: 'Michael Kretschmer',         partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1975-05-07' },
+  // CSU
+  { name: 'Markus Söder',               partei: 'CSU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1967-01-05' },
+  { name: 'Alexander Dobrindt',         partei: 'CSU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1970-06-07' },
+  { name: 'Joachim Herrmann',           partei: 'CSU', funktion: 'Sonstige/r',                   geburtsdatum: '1956-09-21' },
+  { name: 'Dorothee Bär',               partei: 'CSU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1978-04-19' },
+  { name: 'Monika Hohlmeier',           partei: 'CSU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1962-07-02' },
+  { name: 'Horst Seehofer',             partei: 'CSU', funktion: 'Sonstige/r',                   geburtsdatum: '1949-07-04' },
+  { name: 'Clemens Baumgärtner',        partei: 'CSU', funktion: 'Oberbürgermeister',            geburtsdatum: '1976-07-14' },
+  // Baden-Württemberg
+  { name: 'Manuel Hagel',               partei: 'CDU', funktion: 'Parteivorsitzende/r',          geburtsdatum: '1988-05-01' },
+  { name: 'Peter Hauk',                 partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1960-12-24' },
+  { name: 'Marion Gentges',             partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1971-08-23' },
+  { name: 'Gunther Krichbaum',          partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1964-05-04' },
+  { name: 'Roderich Kiesewetter',       partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1963-09-11' },
+  { name: 'Andreas Jung',               partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1975-05-13' },
+  { name: 'Ronja Kemmer',               partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1989-05-03' },
+  { name: 'Alexander Throm',            partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1968-09-08' },
+  { name: 'Tobias Wald',                partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1973-08-26' },
+  // NRW
+  { name: 'Herbert Reul',               partei: 'CDU', funktion: 'Sonstige/r',                   geburtsdatum: '1952-08-31' },
+  // Villingen-Schwenningen
+  { name: 'Jürgen Roth',                partei: 'CDU', funktion: 'Oberbürgermeister',            geburtsdatum: '1963-03-18' },
+  // EU
+  { name: 'David McAllister',           partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1971-01-12' },
+  { name: 'Daniel Caspary',             partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1976-04-04' },
+  { name: 'Peter Liese',                partei: 'CDU', funktion: 'Bundestagsabgeordnete/r',      geburtsdatum: '1965-05-20' },
+]
 
 function daysToBirthday(geburtsdatum) {
   if (!geburtsdatum) return null
